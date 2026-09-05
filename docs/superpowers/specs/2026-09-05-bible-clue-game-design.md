@@ -273,7 +273,9 @@ Constraints every preset obeys:
 ## 6. Content parsing
 
 The builder accepts the week's list pasted **exactly as it arrives by email**, so
-no reformatting is needed. The format in the source sample is:
+no reformatting is needed. The format in the source sample separates the
+character's name from its clues with a blank line, which means the name arrives
+as a block of its own:
 
 ```
 Rebekah
@@ -287,11 +289,22 @@ Eavesdropper
 
 Rules:
 
-- Blocks are separated by one or more blank lines.
-- The first non-empty line of a block is the answer; the rest are clues.
+- Blocks are separated by one or more blank lines. Lines containing only
+  whitespace count as blank — the source emails use lines holding a single
+  space, not truly empty lines.
 - Leading and trailing whitespace is stripped from every line.
-- A leading block that is a rules preamble (contains "Rules:" or a scoring
-  table) is skipped rather than treated as a round.
+- A block that is a rules preamble (its first line starts with "Rules") or a
+  scoring table (every line ends in "point"/"points") is dropped.
+- **A one-line block is a character name.** Its clues are the following block,
+  provided that block has two or more lines. If it does not, the name has no
+  clues and is skipped with a warning.
+- **A block of two or more lines that was not claimed as clues** is treated as a
+  name plus its clues together, supporting the variant where no blank line
+  separates them.
+
+This two-shape rule was not a guess: the single-shape version failed against the
+real week-one email on 2026-09-05, and `test/parser.test.js` pins the real text
+so it cannot regress.
 
 Warnings, shown but never blocking:
 

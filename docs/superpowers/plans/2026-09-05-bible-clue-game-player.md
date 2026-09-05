@@ -418,18 +418,33 @@ export function parseWeekText(text) {
   const warnings = [];
   const rounds = [];
 
-  for (const block of splitBlocks(text)) {
-    if (isPreamble(block)) continue;
+  const blocks = splitBlocks(text).filter(block => !isPreamble(block));
 
-    const [answer, ...clues] = block;
-    if (clues.length === 0) {
-      warnings.push(`"${answer}" has no clues and was skipped.`);
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    if (block.length === 1) {
+      // The shape the source emails actually use: the character's name alone,
+      // a blank line, then the clues as a block of their own.
+      const next = blocks[i + 1];
+      if (next && next.length >= 2) {
+        rounds.push({ answer: block[0], clues: next });
+        i++; // the clue block belongs to this round
+      } else {
+        warnings.push(`"${block[0]}" has no clues and was skipped.`);
+      }
       continue;
     }
-    if (clues.length !== CLUES_EXPECTED) {
-      warnings.push(`"${answer}" has ${clues.length} clues, expected ${CLUES_EXPECTED}.`);
-    }
+
+    // A block that already holds the name and its clues together.
+    const [answer, ...clues] = block;
     rounds.push({ answer, clues });
+  }
+
+  for (const round of rounds) {
+    if (round.clues.length !== CLUES_EXPECTED) {
+      warnings.push(`"${round.answer}" has ${round.clues.length} clues, expected ${CLUES_EXPECTED}.`);
+    }
   }
 
   const seen = new Set();
