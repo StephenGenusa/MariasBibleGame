@@ -244,11 +244,11 @@ html, body {
       Once you think you know, call out your name and lock in your answer.
       The earlier you call it, the more it is worth.</p>
     <table class="scoring">
-      <tr><td>By clue 1</td><td>5 points</td></tr>
-      <tr><td>By clue 2</td><td>4 points</td></tr>
-      <tr><td>By clue 3</td><td>3 points</td></tr>
-      <tr><td>By clue 4</td><td>2 points</td></tr>
-      <tr><td>By clue 5</td><td>1 point</td></tr>
+      <tr><td>On Clue 1</td><td>5 points</td></tr>
+      <tr><td>On Clue 2</td><td>4 points</td></tr>
+      <tr><td>On Clue 3</td><td>3 points</td></tr>
+      <tr><td>On Clue 4</td><td>2 points</td></tr>
+      <tr><td>On Clue 5</td><td>1 point</td></tr>
     </table>
     <p class="hint">Press space to begin</p>
   </section>
@@ -638,7 +638,7 @@ const MIN_RADIUS = 6;
 const MAX_RADIUS = 14;
 const MAX_PARTICLES = 250;
 const MIN_DURATION = 2500;
-const MAX_DURATION = 4000;
+const MAX_DURATION = 7000;
 
 function makeParticle(overrides = {}) {
   return {
@@ -999,7 +999,7 @@ const LOSE_PRESETS = [
     id: "ashfall",
     label: "Ashfall",
     kind: "lose",
-    duration: 3600,
+    duration: 6000,
     overlay: null,
     emit({ width }) {
       const out = [];
@@ -1011,7 +1011,9 @@ const LOSE_PRESETS = [
           vy: rand(0.8, 1.8),
           r: rand(MIN_RADIUS, MIN_RADIUS + 4),
           color: pick(GREY),
-          decay: 0.004,
+          // Slow decay: the flurries should drift for a good six seconds
+          // rather than blinking out while everyone is still reading.
+          decay: 0.0026,
           gravity: 0.012,
           drag: 0.999,
           delay: Math.random() * 45,
@@ -1096,6 +1098,7 @@ function viewModel(state) {
   const { phase, round, k, week } = state;
   const current = week.rounds[round] ?? { answer: "", clues: [] };
   const points = pointValue(k);
+  const isLastRound = round >= week.rounds.length - 1;
 
   const clues = [];
   for (let i = 0; i < CLUES_PER_ROUND; i++) {
@@ -1121,6 +1124,7 @@ function viewModel(state) {
     failEnabled: phase === CLUES && k >= CLUES_PER_ROUND,
     showAnswer: phase === RESOLVED,
     showNext: phase === RESOLVED,
+    nextLabel: isLastRound ? "Finish \u2193" : "Next round \u2193",
   };
 }
 
@@ -1153,6 +1157,7 @@ function createRenderer(root) {
     titleScreen.hidden = !vm.showTitle;
     endScreen.hidden = !vm.showEnd;
     answerPanel.hidden = !vm.showAnswer;
+    nextBar.textContent = vm.nextLabel;
     nextBar.hidden = !vm.showNext;
     controls.hidden = !vm.showControls;
     failButton.disabled = !vm.failEnabled;
