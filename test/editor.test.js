@@ -47,3 +47,85 @@ test("a supplied theme is carried through and gap-filled", () => {
   assert.equal(theme.background, "plum");
   assert.equal(theme.winEffect, "fireworks", "unspecified fields still get defaults");
 });
+
+import { slugifyName, weekFromEditor } from "../src/player/editor.js";
+
+const TEXT = [
+  "Rebekah", "", "An answer to prayer", "Animal lover", "Stay hydrated",
+  "Born when their spouse almost died", "Eavesdropper", "",
+  "The Ark", "", "a", "b", "c", "d", "e",
+].join("\n");
+
+const FORM = {
+  text: TEXT,
+  name: "Sept 13",
+  background: "plum",
+  winEffect: "streamers",
+  loseEffect: "iris",
+};
+
+test("a typed name becomes a stable storage key", () => {
+  assert.equal(slugifyName("Sept 13"), "sept-13");
+  assert.equal(slugifyName("  Week of the 20th!  "), "week-of-the-20th");
+  assert.equal(slugifyName("Lot's Wife & Friends"), "lot-s-wife-friends");
+});
+
+test("the same name always yields the same key, so re-saving updates", () => {
+  assert.equal(slugifyName("Sept 13"), slugifyName("sept 13"));
+  assert.equal(slugifyName("Sept 13"), slugifyName("Sept  13 "));
+});
+
+test("a name with nothing usable in it yields an empty key", () => {
+  assert.equal(slugifyName("!!!"), "");
+  assert.equal(slugifyName("   "), "");
+  assert.equal(slugifyName(null), "");
+});
+
+test("builds a complete week from the editor form", () => {
+  const { week, ok, warnings } = weekFromEditor(FORM);
+  assert.equal(ok, true);
+  assert.deepEqual(warnings, []);
+  assert.equal(week.formatVersion, 1);
+  assert.equal(week.id, "sept-13");
+  assert.equal(week.title, "Sept 13", "the typed name is what gets displayed");
+  assert.equal(week.rounds.length, 2);
+  assert.equal(week.rounds[1].answer, "The Ark", "topics work, not just people");
+  assert.equal(week.theme.background, "plum");
+  assert.equal(week.theme.winEffect, "streamers");
+  assert.equal(week.theme.loseEffect, "iris");
+});
+
+test("a blank name falls back to the next Sunday", () => {
+  const { week } = weekFromEditor({ ...FORM, name: "" });
+  assert.match(week.id, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(week.title, week.id);
+});
+
+test("an unknown background falls back to slate", () => {
+  const { week } = weekFromEditor({ ...FORM, background: "chartreuse" });
+  assert.equal(week.theme.background, "slate");
+});
+
+test("a fail effect cannot be selected as a win effect", () => {
+  // Grey flakes for a correct answer would be a bad surprise mid-meeting.
+  const { week } = weekFromEditor({ ...FORM, winEffect: "ashfall" });
+  assert.equal(week.theme.winEffect, "fireworks");
+});
+
+test("a win effect cannot be selected as a fail effect", () => {
+  const { week } = weekFromEditor({ ...FORM, loseEffect: "fireworks" });
+  assert.equal(week.theme.loseEffect, "ashfall");
+});
+
+test("empty text is not ok but still yields a usable object", () => {
+  const { week, ok, warnings } = weekFromEditor({ ...FORM, text: "  \n " });
+  assert.equal(ok, false);
+  assert.deepEqual(week.rounds, []);
+  assert.ok(warnings.length > 0);
+});
+
+test("parser warnings pass straight through", () => {
+  const { warnings, ok } = weekFromEditor({ ...FORM, text: "Achan\n\nTribe of Judah\nConfessed" });
+  assert.equal(ok, true);
+  assert.match(warnings[0], /2 clues/);
+});

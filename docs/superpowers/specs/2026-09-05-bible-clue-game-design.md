@@ -14,10 +14,10 @@ Two programs are being built:
 
 - **The player** — a single self-contained HTML file, hosted once and installed
   to the iPad's home screen. This is what the group sees.
-- **The builder** — a single self-contained HTML file that runs on Stephen's PC.
-  It turns a pasted list of characters and clues into a week of content, and
-  emits either a fresh player or just the week's data. Its user is assumed to
-  know nothing about HTML, CSS, or JavaScript.
+There is **no separate builder**. A standalone authoring tool was specified and
+planned, then dropped on 2026-09-05 before implementation: everything it was to
+do fits inside the player's own editor screen, on the device where the game is
+actually run. See §8.
 
 ### Scoring rules (shown on the title screen)
 
@@ -80,7 +80,7 @@ attractive option and is recorded here so it is not re-proposed.
 ## 4. Data model
 
 A week is one JSON object. This is the unit that is embedded in the player,
-stored in `localStorage`, and written to disk by the builder.
+stored in `localStorage`, and exported to disk by the editor.
 
 ```json
 {
@@ -110,7 +110,7 @@ stored in `localStorage`, and written to disk by the builder.
 
 - `formatVersion` — integer, lets a future player read an old week file.
 - `id` — unique string, used as the `localStorage` key. Date-based by default.
-- `backgroundImage` — `null`, or a `data:` URI produced by the builder.
+- `backgroundImage` — `null`, or a `data:` URI. Not settable from the editor; reserved for a hand-authored week file.
 - `rounds[].clues` — exactly 5 strings in reveal order, vague → obvious.
 
 Rounds are played in the order given. No shuffling; clue order is authored and
@@ -224,9 +224,10 @@ Eight flat presets, each a `{ bg, fg, accent, dim }` token set: Slate, Ink,
 Parchment, Deep Teal, Plum, Forest, Charcoal, Sand. Flat fills, no gradients
 (see §2).
 
-A custom image is optional. The builder downscales it to 1920 px wide, re-encodes
-as JPEG at quality 0.8, and embeds it as a `data:` URI. A darkening scrim is
-applied automatically so clue text stays legible over any photo.
+A custom image is possible by hand-editing a week file's `backgroundImage` into
+a `data:` URI; the stage applies a darkening scrim automatically so clue text
+stays legible. No interface offers this, and flat colours are the recommendation
+regardless (see §2).
 
 ### 5.6 Effects
 
@@ -275,7 +276,7 @@ Constraints every preset obeys:
 
 ## 6. Content parsing
 
-The builder accepts the week's list pasted **exactly as it arrives by email**, so
+The editor accepts the week's list pasted **exactly as it arrives by email**, so
 no reformatting is needed. The format in the source sample separates the
 character's name from its clues with a blank line, which means the name arrives
 as a block of its own:
@@ -329,7 +330,7 @@ app:
    has no dependencies and always works.
 2. **Load from file** — a file picker reads a `.json` week file, including one
    on the SanDisk drive, whose transfer path is now proven (§2). Cheaper than
-   pasting when the builder has already written the file.
+   pasting when a week file already exists.
 
 Storage layout in `localStorage`:
 
@@ -345,39 +346,54 @@ than showing an error.
 Re-uploading the whole app to the host remains possible but is never required
 for a content change.
 
-## 8. The builder
+## 8. Authoring a week
 
-`builder.html`, opened by double-clicking on the PC. No server, no install, no
-special permissions — generating a file in memory and handing it to the browser
-as a download is ordinary web behavior.
+All authoring happens **inside the game**, on the screen reached with `E` or a
+triple-tap in the top-left corner. It is available from the title and end
+screens only, never mid-round.
 
-Panels, top to bottom:
+The screen offers, in order:
 
-1. **Week name** — defaults to next Sunday's date.
-2. **Content** — the large paste box, a Parse button, and a parsed preview
-   listing each round with its five clues and any warnings.
-3. **Background** — eight swatches plus an optional image upload with a live
-   thumbnail.
-4. **Win effect** — a grid of six cards, each with a Preview button that plays
-   the effect in place over the current background.
-5. **Lose effect** — same, five cards.
-6. **Preview** — an iframe running the actual player with the current settings,
-   fully playable.
-7. **Output** — two buttons: *Download full app* (`index.html`, for the first
-   host and for any change to the game itself) and *Download week file*
-   (`week-YYYY-MM-DD.json`, the routine weekly artifact).
+1. **A name.** Free text. The storage key is derived from it, so saving again
+   under the same name replaces that week rather than leaving a near-duplicate.
+   Left blank, it falls back to the next Sunday's date.
+2. **The list**, pasted exactly as the email arrives (§6), with a running count
+   of what parsed and any warnings, updated on every keystroke.
+3. **A background**, chosen from the eight flat palettes rendered as swatches in
+   their own colours.
+4. **A preview** — a 16:9 panel showing a real mid-round screen through the
+   game's own renderer, so it cannot drift from what the iPad displays.
+5. **A win effect** and **a fail effect**, six and five cards respectively, each
+   with a play button. Choosing one also plays it.
+6. **Use this week**, **Export file**, **Load a file**, **Close**, and a list of
+   saved weeks to switch between or delete.
 
-Plus **Open existing…**, which reads a previously built `index.html`, recovers
-its embedded data block, and repopulates every field. "Same as last week but
-swap two characters" then takes about twenty seconds.
+**Effect previews step the editor aside** and play at full size on the real
+stage, against the chosen background and a real answer. A shrunken preview would
+say nothing useful about how an effect survives Meet's compression, which is the
+only question worth asking about it.
 
-### How the builder produces the player
+**The two effect pickers are built from separate lists**, so no interface path
+can select `ashfall` for a correct answer. `weekFromEditor` validates the same
+constraint again for hand-edited files.
 
-The player is embedded inside the builder as a template string with a single
-placeholder for the JSON data block. Building substitutes the placeholder and
-downloads the result. The player marks its data with
-`<script type="application/json" id="game-data">`, which is also what makes
-*Open existing…* possible.
+**Export** writes `<name>.json`. It exists because deleting the home-screen app
+wipes its storage, so without it there is no backup of a week's content; it also
+makes a week portable between the PC's browser and the iPad.
+
+### Why there is no separate builder
+
+A standalone `builder.html` was specified here and fully planned. It was dropped
+before implementation once the player shipped with a working editor:
+
+- Background and effects live inside a week's `theme`, so a week file already
+  carries everything the builder would have set.
+- Authoring on the iPad is where the game is actually run, so a PC-only tool
+  added a device hop rather than removing one.
+- Embedding the player inside a builder to preview it would have gone stale on
+  every player change.
+
+The plan for it was deleted rather than left in `docs/` to go stale.
 
 ## 9. Source layout, build, and testing
 
@@ -388,10 +404,9 @@ once a week.
 
 ```
 src/player/{index.html, style.css, game.js, effects.js, parser.js, weeks.js}
-src/builder/{builder.html, builder.css, builder.js}
 src/data/week-2026-09-13.json      # the sample content, as the default embed
 build.py                            # inlines everything
-dist/{index.html, builder.html}     # the two shipped artifacts
+dist/{index.html, sw.js, icon-180.png}   # the shipped artifacts
 test/{parser.test.js, machine.test.js}
 ```
 
@@ -440,4 +455,4 @@ Deliberately excluded, to be reconsidered only if asked for after real use:
 1. Player first — it has a weekly deadline, and week one's content can be
    hand-entered in a minute from the sample already supplied.
 2. Host it, install it on the iPad, run the manual checklist.
-3. Builder second, once the player's data format has been proven in real use.
+3. The editor grew to cover authoring; no second program was built.

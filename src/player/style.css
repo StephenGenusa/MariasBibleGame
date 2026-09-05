@@ -200,3 +200,54 @@ html, body {
 }
 .editor-weeks button:first-child { flex: 1; text-align: left; }
 .editor-weeks .del { color: #ff5c7a; flex: 0 0 auto; }
+
+/* ---- editor: week setup ---- */
+
+.editor.is-away { opacity: 0; pointer-events: none; transition: opacity 180ms ease-out; }
+
+.ed-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+.ed-label { font-weight: 700; font-size: 15px; }
+.ed-name {
+  font: 600 17px var(--font); color: #e8eaf0; background: #171b24;
+  border: 2px solid #2b3140; border-radius: 10px; padding: 11px 13px;
+}
+
+.editor-report { margin-top: 12px; font-size: 14px; }
+.ed-good { margin: 0 0 6px; font-weight: 700; color: #33e08a; }
+.ed-rounds { margin: 0; padding-left: 20px; line-height: 1.7; }
+.ed-count { color: #6f7891; font-size: 13px; margin-left: 8px; }
+.ed-count.off { color: #ffc44d; font-weight: 700; }
+
+.ed-palette { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 9px; }
+.ed-swatch {
+  all: unset; box-sizing: border-box;
+  aspect-ratio: 16 / 9; border-radius: 9px; cursor: pointer;
+  display: grid; place-items: center;
+  background: var(--bg); color: var(--fg);
+  font: 800 16px var(--font);
+  outline: 3px solid transparent; outline-offset: 2px;
+}
+.ed-swatch.is-on { outline-color: #6fd0ff; }
+
+/* The stage is normally positioned against the whole window; inside the
+   editor it has to be scoped to its own frame instead. */
+.ed-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 11px; overflow: hidden; }
+.ed-frame .ed-stage {
+  position: absolute; inset: 0; margin: 0;
+  max-width: none; max-height: none;
+}
+
+.ed-effects { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 9px; }
+.ed-effect { display: flex; border: 2px solid #2b3140; border-radius: 10px; overflow: hidden; }
+.ed-effect.is-on { border-color: #6fd0ff; }
+.ed-effect-pick {
+  all: unset; flex: 1; padding: 12px 14px; cursor: pointer;
+  font: 600 15px var(--font); color: #e8eaf0;
+}
+.ed-effect.is-on .ed-effect-pick { background: #6fd0ff; color: #10131a; }
+.ed-effect-play {
+  all: unset; padding: 12px 15px; cursor: pointer; color: #6f7891;
+  border-left: 2px solid #2b3140;
+}
+.ed-primary { border-color: #6fd0ff !important; }
+.editor-note { margin-top: 6px; font-size: 14px; color: #9aa3b8; min-height: 1.4em; }

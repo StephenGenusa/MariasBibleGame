@@ -42,10 +42,40 @@ function loadWeek(week) {
   renderer.render(viewModel(state));
 }
 
+// Show a real resolved screen with the chosen theme so an effect can be
+// previewed at full size, then put the real state back.
+function previewEffect(theme, outcome) {
+  const round = state.week.rounds[0] ?? { answer: "Rebekah", clues: ["", "", "", "", ""] };
+  const previewWeek = { rounds: [round], theme };
+
+  let s = initialState(previewWeek);
+  for (let i = 0; i < 5; i++) s = reduce(s, { type: "ADVANCE" });
+  s = reduce(s, { type: outcome === "win" ? "WIN" : "FAIL" });
+
+  applyTheme(previewWeek);
+  renderer.render(viewModel(s));
+
+  const preset = getPreset(outcome === "win" ? theme.winEffect : theme.loseEffect);
+  engine.play(preset);
+  return preset?.duration ?? 3000;
+}
+
+function endPreview() {
+  engine.stop();
+  applyTheme(state.week);
+  renderer.render(viewModel(state));
+}
+
 function dispatch(action) {
   if (action.type === "EDIT") {
     if (state.phase === "TITLE" || state.phase === "END") {
-      openEditor({ storage, onLoad: loadWeek, embedded: EMBEDDED_WEEK });
+      openEditor({
+        storage,
+        onLoad: loadWeek,
+        embedded: EMBEDDED_WEEK,
+        previewEffect,
+        endPreview,
+      });
     }
     return;
   }
