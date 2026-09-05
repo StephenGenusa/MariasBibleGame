@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12141a">
+<title>Bible Clue Game</title>
+<style>
+
+</style>
+</head>
+<body>
+<div id="stage" aria-live="polite"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script type="application/json" id="game-data">{
+  "formatVersion": 1,
+  "id": "2026-09-13",
+  "title": "September 13",
+  "theme": {
+    "background": "slate",
+    "backgroundImage": null,
+    "winEffect": "fireworks",
+    "loseEffect": "ashfall"
+  },
+  "rounds": [
+    {
+      "answer": "Placeholder",
+      "clues": [
+        "one",
+        "two",
+        "three",
+        "four",
+        "five"
+      ]
+    }
+  ]
+}</script>
+<script type="module">
+/* ---------- parser.js ---------- */
+// Pasted week text -> rounds and warnings. No DOM access, ever.
+
+/* ---------- machine.js ---------- */
+// The whole game, as a pure reducer. No DOM, no timers.
+
+/* ---------- storage.js ---------- */
+// A small library of weeks in localStorage.
+
+/* ---------- effects.js ---------- */
+// Canvas particle engine and its presets.
+
+/* ---------- render.js ---------- */
+// A pure view model plus a renderer too dumb to hold a bug.
+
+/* ---------- input.js ---------- */
+// Keys and taps -> action types.
+
+/* ---------- editor.js ---------- */
+// Load a new week without rebuilding.
+
+/* ---------- main.js ---------- */
+// Wiring only. Every game rule lives in machine.js.
+
+</script>
+</body>
+</html>

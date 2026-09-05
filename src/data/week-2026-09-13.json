@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "id": "2026-09-13",
+  "title": "September 13",
+  "theme": {
+    "background": "slate",
+    "backgroundImage": null,
+    "winEffect": "fireworks",
+    "loseEffect": "ashfall"
+  },
+  "rounds": [
+    { "answer": "Placeholder", "clues": ["one", "two", "three", "four", "five"] }
+  ]
+}
