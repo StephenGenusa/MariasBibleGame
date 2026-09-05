@@ -2342,6 +2342,8 @@ export function bindInput({ stage, dispatch, getState }) {
   function onKeyDown(event) {
     // A held key must not blow through all five clues.
     if (event.repeat) return;
+    // While the editor is open the game must not react to anything.
+    if (isTypingTarget(event.target) || document.querySelector(".editor")) return;
     const type = keyToAction(event.key);
     if (!type) return;
     event.preventDefault();

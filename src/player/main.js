@@ -71,3 +71,12 @@ function dispatch(action) {
 
 bindInput({ stage, dispatch, getState: () => state });
 loadWeek(state.week);
+
+// Offline support. Absent (harmlessly) when opened from a file:// URL.
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // Not fatal: the game runs perfectly well online.
+    });
+  });
+}

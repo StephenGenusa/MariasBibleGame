@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { keyToAction, createDebouncer, DEBOUNCE_MS } from "../src/player/input.js";
+import { keyToAction, createDebouncer, isTypingTarget, DEBOUNCE_MS } from "../src/player/input.js";
 
 test("space and right arrow advance", () => {
   assert.equal(keyToAction(" "), "ADVANCE");
@@ -56,4 +56,18 @@ test("the debouncer allows a call once the window has passed", () => {
 
 test("the first call is always allowed", () => {
   assert.equal(createDebouncer(DEBOUNCE_MS)(0), true);
+});
+
+test("text fields are never treated as game input", () => {
+  assert.equal(isTypingTarget({ tagName: "TEXTAREA" }), true);
+  assert.equal(isTypingTarget({ tagName: "INPUT" }), true);
+  assert.equal(isTypingTarget({ tagName: "SELECT" }), true);
+  assert.equal(isTypingTarget({ isContentEditable: true }), true);
+});
+
+test("ordinary elements are game input", () => {
+  assert.equal(isTypingTarget({ tagName: "DIV" }), false);
+  assert.equal(isTypingTarget({ tagName: "BUTTON" }), false);
+  assert.equal(isTypingTarget(null), false);
+  assert.equal(isTypingTarget(undefined), false);
 });

@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#12141a">
+<link rel="apple-touch-icon" href="icon-180.png">
 <title>Bible Clue Game</title>
 <style>
 :root {
@@ -1180,6 +1181,14 @@ function keyToAction(key) {
   return KEY_MAP[lookup] ?? null;
 }
 
+// The editor has a textarea. Game keys must never be stolen from a text field,
+// and space in particular would both advance the game and fail to type.
+function isTypingTarget(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || "");
+}
+
 function createDebouncer(ms) {
   let last = -Infinity;
   return function allow(now) {
@@ -1201,6 +1210,8 @@ function bindInput({ stage, dispatch, getState }) {
   function onKeyDown(event) {
     // A held key must not blow through all five clues.
     if (event.repeat) return;
+    // While the editor is open the game must not react to anything.
+    if (isTypingTarget(event.target) || document.querySelector(".editor")) return;
     const type = keyToAction(event.key);
     if (!type) return;
     fire(event, type);
@@ -1461,6 +1472,15 @@ function dispatch(action) {
 
 bindInput({ stage, dispatch, getState: () => state });
 loadWeek(state.week);
+
+// Offline support. Absent (harmlessly) when opened from a file:// URL.
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // Not fatal: the game runs perfectly well online.
+    });
+  });
+}
 
 </script>
 </body>

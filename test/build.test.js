@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync, existsSync, statSync } from "node:fs";
 
 test("build produces a self-contained player", () => {
   execFileSync("python3", ["build.py"], { stdio: "pipe" });
@@ -40,4 +40,22 @@ test("the inlined bundle is valid JavaScript", () => {
     assert.ok(at > cursor, `${name} is missing or out of dependency order`);
     cursor = at;
   }
+});
+
+test("build emits the install assets", () => {
+  execFileSync("python3", ["build.py"], { stdio: "pipe" });
+  assert.ok(existsSync("dist/sw.js"), "service worker missing");
+  assert.ok(existsSync("dist/icon-180.png"), "home screen icon missing");
+  assert.ok(statSync("dist/icon-180.png").size > 200, "icon looks empty");
+
+  const html = readFileSync("dist/index.html", "utf8");
+  assert.match(html, /rel="apple-touch-icon"/);
+  assert.match(html, /apple-mobile-web-app-capable/);
+});
+
+test("the service worker version changes when the page does", () => {
+  execFileSync("python3", ["build.py"], { stdio: "pipe" });
+  const sw = readFileSync("dist/sw.js", "utf8");
+  assert.match(sw, /const CACHE = "bible-clue-[0-9a-f]{8}"/,
+    "the cache name must be content-derived so an update actually lands");
 });

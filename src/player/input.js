@@ -21,6 +21,14 @@ export function keyToAction(key) {
   return KEY_MAP[lookup] ?? null;
 }
 
+// The editor has a textarea. Game keys must never be stolen from a text field,
+// and space in particular would both advance the game and fail to type.
+export function isTypingTarget(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || "");
+}
+
 export function createDebouncer(ms) {
   let last = -Infinity;
   return function allow(now) {
@@ -42,6 +50,8 @@ export function bindInput({ stage, dispatch, getState }) {
   function onKeyDown(event) {
     // A held key must not blow through all five clues.
     if (event.repeat) return;
+    // While the editor is open the game must not react to anything.
+    if (isTypingTarget(event.target) || document.querySelector(".editor")) return;
     const type = keyToAction(event.key);
     if (!type) return;
     fire(event, type);
