@@ -255,7 +255,7 @@ duration. Adding a twelfth preset later is a table entry, not a new module.
 
 | Preset | Description |
 |---|---|
-| `ashfall` | Slow grey flakes drifting down over a dimmed screen. The default. |
+| `ashfall` | Slow grey flakes drifting for about six seconds over a dimmed screen. The default. |
 | `deflate` | The answer sinks a few pixels, the screen desaturates, a red vignette closes in, and the stage shakes briefly. |
 | `shatter` | The answer breaks into angular fragments that fall and rotate. |
 | `iris` | A dark vignette closes inward until only the answer remains lit. |
@@ -265,7 +265,10 @@ Constraints every preset obeys:
 
 - Particle radius 6–14 px, so nothing dissolves into mush under Meet's encoder.
 - At most 250 live particles at once, to hold frame rate on the iPad.
-- Total duration 2.5–4 s, then the screen settles and holds on the answer.
+- Total duration 2.5–7 s, then the screen settles and holds on the answer.
+  The upper bound was raised from 4 s on 2026-09-05: effect *length* is not
+  what video compression punishes — particle size and speed are — and the
+  ashfall was blinking out while people were still reading it.
 - No preset relies on fine detail, rapid strobing, or subtle color shifts, all of
   which compression destroys.
 - `prefers-reduced-motion` substitutes a simple fade for any preset.
@@ -273,7 +276,9 @@ Constraints every preset obeys:
 ## 6. Content parsing
 
 The builder accepts the week's list pasted **exactly as it arrives by email**, so
-no reformatting is needed. The format in the source sample is:
+no reformatting is needed. The format in the source sample separates the
+character's name from its clues with a blank line, which means the name arrives
+as a block of its own:
 
 ```
 Rebekah
@@ -287,11 +292,22 @@ Eavesdropper
 
 Rules:
 
-- Blocks are separated by one or more blank lines.
-- The first non-empty line of a block is the answer; the rest are clues.
+- Blocks are separated by one or more blank lines. Lines containing only
+  whitespace count as blank — the source emails use lines holding a single
+  space, not truly empty lines.
 - Leading and trailing whitespace is stripped from every line.
-- A leading block that is a rules preamble (contains "Rules:" or a scoring
-  table) is skipped rather than treated as a round.
+- A block that is a rules preamble (its first line starts with "Rules") or a
+  scoring table (every line ends in "point"/"points") is dropped.
+- **A one-line block is a character name.** Its clues are the following block,
+  provided that block has two or more lines. If it does not, the name has no
+  clues and is skipped with a warning.
+- **A block of two or more lines that was not claimed as clues** is treated as a
+  name plus its clues together, supporting the variant where no blank line
+  separates them.
+
+This two-shape rule was not a guess: the single-shape version failed against the
+real week-one email on 2026-09-05, and `test/parser.test.js` pins the real text
+so it cannot regress.
 
 Warnings, shown but never blocking:
 

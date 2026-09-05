@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12141a">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Bible Clue Game</title>
+<!--INLINE:css-->
+</head>
+<body>
+<div id="stage" class="stage" data-bg="slate" aria-live="polite">
+  <header class="hud">
+    <span class="hud-round"></span>
+    <span class="hud-points"></span>
+  </header>
+
+  <ol class="clues">
+    <li class="clue"><span class="clue-num">1</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">2</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">3</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">4</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">5</span><span class="clue-text"></span></li>
+  </ol>
+
+  <div class="answer" hidden><span class="answer-text"></span></div>
+
+  <footer class="controls" hidden>
+    <button class="btn btn-win" type="button" aria-label="Someone guessed correctly">&check;</button>
+    <button class="btn btn-fail" type="button" aria-label="Nobody guessed it">&times;</button>
+  </footer>
+
+  <div class="next-bar" role="button" tabindex="0" hidden>Next round &darr;</div>
+
+  <section class="screen screen-title" hidden>
+    <h1>Who Am I?</h1>
+    <p class="lede">Five clues about a Bible character are revealed one at a time.
+      Once you think you know, call out your name and lock in your answer.
+      The earlier you call it, the more it is worth.</p>
+    <table class="scoring">
+      <tr><td>On Clue 1</td><td>5 points</td></tr>
+      <tr><td>On Clue 2</td><td>4 points</td></tr>
+      <tr><td>On Clue 3</td><td>3 points</td></tr>
+      <tr><td>On Clue 4</td><td>2 points</td></tr>
+      <tr><td>On Clue 5</td><td>1 point</td></tr>
+    </table>
+    <p class="hint">Press space to begin</p>
+  </section>
+
+  <section class="screen screen-end" hidden>
+    <h1>That&rsquo;s all for today</h1>
+    <p class="hint">Press space to start over</p>
+  </section>
+</div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script type="application/json" id="game-data"><!--INLINE:data--></script>
+<script type="module">
+<!--INLINE:js-->
+</script>
+</body>
+</html>

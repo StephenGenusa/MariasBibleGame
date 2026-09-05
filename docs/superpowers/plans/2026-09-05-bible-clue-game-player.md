@@ -21,7 +21,7 @@ Every task's requirements implicitly include this section. Values are copied ver
 - **No third-party or cross-origin requests, ever.** No CDNs, no web fonts, no external images, no analytics. All game code, styles and content live inside `dist/index.html`. Task 12 adds exactly two same-origin siblings — `sw.js` (offline caching, which cannot be inlined) and `icon-180.png` (the home-screen icon) — and nothing else may join them.
 - **Fonts:** system stack only — `-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif`.
 - **Backgrounds are flat fills. No gradients** — they band under Google Meet's video compression.
-- **Particle budget:** radius 6–14 px, at most 250 alive at once, effect duration 2.5–4 s.
+- **Particle budget:** radius 6–14 px, at most 250 alive at once, effect duration 2.5–7 s.
 - **Layout targets 16:9**, centered and letterboxed on other aspect ratios.
 - **Text is bold rather than merely large.** Weight survives compression; thin large text does not.
 - **Input map:** `Space`/`→` advance · `←`/`Backspace` go back · `Y` win · `N` fail (clue 5 only) · `↓` next round · `E` editor. **No `Enter`, no `PageUp`, no `PageDown`.**
@@ -418,18 +418,33 @@ export function parseWeekText(text) {
   const warnings = [];
   const rounds = [];
 
-  for (const block of splitBlocks(text)) {
-    if (isPreamble(block)) continue;
+  const blocks = splitBlocks(text).filter(block => !isPreamble(block));
 
-    const [answer, ...clues] = block;
-    if (clues.length === 0) {
-      warnings.push(`"${answer}" has no clues and was skipped.`);
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    if (block.length === 1) {
+      // The shape the source emails actually use: the character's name alone,
+      // a blank line, then the clues as a block of their own.
+      const next = blocks[i + 1];
+      if (next && next.length >= 2) {
+        rounds.push({ answer: block[0], clues: next });
+        i++; // the clue block belongs to this round
+      } else {
+        warnings.push(`"${block[0]}" has no clues and was skipped.`);
+      }
       continue;
     }
-    if (clues.length !== CLUES_EXPECTED) {
-      warnings.push(`"${answer}" has ${clues.length} clues, expected ${CLUES_EXPECTED}.`);
-    }
+
+    // A block that already holds the name and its clues together.
+    const [answer, ...clues] = block;
     rounds.push({ answer, clues });
+  }
+
+  for (const round of rounds) {
+    if (round.clues.length !== CLUES_EXPECTED) {
+      warnings.push(`"${round.answer}" has ${round.clues.length} clues, expected ${CLUES_EXPECTED}.`);
+    }
   }
 
   const seen = new Set();
@@ -631,6 +646,8 @@ export function reduce(state, action) {
   switch (action.type) {
     case "ADVANCE":
       if (s.phase === TITLE) return { ...s, phase: CLUES, round: 0, k: 1 };
+      // The end screen invites "press space to start over", so honour it.
+      if (s.phase === END) return initialState(s.week);
       if (s.phase !== CLUES) return s;
       return s.k >= CLUES_PER_ROUND ? s : { ...s, k: s.k + 1 };
 
@@ -812,7 +829,7 @@ Insert this case into the `switch` in `src/player/machine.js`, immediately befor
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test test/machine.test.js`
-Expected: PASS, 20 tests.
+Expected: PASS, 21 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1449,7 +1466,7 @@ The engine is deliberately split from the presets. It owns the canvas, the devic
 **Interfaces:**
 - Consumes: nothing.
 - Produces:
-  - `MIN_RADIUS` (`6`), `MAX_RADIUS` (`14`), `MAX_PARTICLES` (`250`), `MIN_DURATION` (`2500`), `MAX_DURATION` (`4000`).
+  - `MIN_RADIUS` (`6`), `MAX_RADIUS` (`14`), `MAX_PARTICLES` (`250`), `MIN_DURATION` (`2500`), `MAX_DURATION` (`7000`).
   - `makeParticle(overrides) -> Particle`, filling every field with a default.
   - `stepParticle(p, f) -> Particle` — advances one particle by `f` frames (1 = one frame at 60 fps). Mutates and returns.
   - `createEngine(canvas, stage) -> { play(preset), stop(), resize() }` where `preset` is a Task 8 preset object.
@@ -1471,7 +1488,7 @@ test("the compression budget is what the spec says", () => {
   assert.equal(MAX_RADIUS, 14);
   assert.equal(MAX_PARTICLES, 250);
   assert.equal(MIN_DURATION, 2500);
-  assert.equal(MAX_DURATION, 4000);
+  assert.equal(MAX_DURATION, 7000);
 });
 
 test("a particle gets sane defaults", () => {
@@ -1501,13 +1518,21 @@ test("life decays and can be driven to zero", () => {
   assert.ok(p.life <= 0, "particle should be spent");
 });
 
-test("a fractional frame count scales the step", () => {
-  const a = makeParticle({ vy: 0, gravity: 1, drag: 1 });
-  const b = makeParticle({ vy: 0, gravity: 1, drag: 1 });
+test("the frame count scales displacement linearly", () => {
+  const a = makeParticle({ x: 0, vx: 3, gravity: 0, drag: 1 });
+  const b = makeParticle({ x: 0, vx: 3, gravity: 0, drag: 1 });
   stepParticle(a, 2);
   stepParticle(b, 1);
-  stepParticle(b, 1);
-  assert.ok(Math.abs(a.y - b.y) < 1e-9, "two half steps should match one whole step");
+  assert.equal(a.x, 6);
+  assert.equal(b.x, 3);
+});
+
+test("a long frame gap applies proportionally more gravity", () => {
+  // This is Euler integration, so two half-steps do NOT equal one whole step.
+  // What must hold is that a single step scales with the frame count.
+  const p = makeParticle({ vy: 0, gravity: 0.5, drag: 1 });
+  stepParticle(p, 3);
+  assert.equal(p.vy, 1.5);
 });
 
 test("a delayed particle holds still and burns off its delay", () => {
@@ -1546,7 +1571,7 @@ export const MIN_RADIUS = 6;
 export const MAX_RADIUS = 14;
 export const MAX_PARTICLES = 250;
 export const MIN_DURATION = 2500;
-export const MAX_DURATION = 4000;
+export const MAX_DURATION = 7000;
 
 export function makeParticle(overrides = {}) {
   return {
@@ -1726,7 +1751,7 @@ export function createEngine(canvas, stage) {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test test/effects.test.js`
-Expected: PASS, 8 tests.
+Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -2177,7 +2202,7 @@ export function getPreset(id) {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `node --test test/effects.test.js`
-Expected: PASS, 19 tests.
+Expected: PASS, 20 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -2317,6 +2342,8 @@ export function bindInput({ stage, dispatch, getState }) {
   function onKeyDown(event) {
     // A held key must not blow through all five clues.
     if (event.repeat) return;
+    // While the editor is open the game must not react to anything.
+    if (isTypingTarget(event.target) || document.querySelector(".editor")) return;
     const type = keyToAction(event.key);
     if (!type) return;
     event.preventDefault();
@@ -2331,12 +2358,12 @@ export function bindInput({ stage, dispatch, getState }) {
     if (target.closest(".btn-win")) return fire(event, "WIN");
     if (target.closest(".btn-fail")) return fire(event, "FAIL");
     if (target.closest(".next-bar")) return fire(event, "NEXT_ROUND");
-    if (target.closest(".screen, .editor")) return;
 
-    // Otherwise the right 70% of the stage advances.
     const rect = stage.getBoundingClientRect();
-    const phase = getState().phase;
-    if (phase === "RESOLVED") return fire(event, "NEXT_ROUND");
+    if (getState().phase === "RESOLVED") return fire(event, "NEXT_ROUND");
+
+    // The right 70% advances; the left 30% is dead space, which is what keeps
+    // the top-left corner free for the editor's triple-tap.
     if (event.clientX - rect.left > rect.width * 0.3) fire(event, "ADVANCE");
   }
 
