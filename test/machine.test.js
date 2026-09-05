@@ -95,3 +95,60 @@ test("the reducer never mutates the state it is given", () => {
   reduce(before, { type: "ADVANCE" });
   assert.equal(JSON.stringify(before), snapshot);
 });
+
+test("back steps to the previous clue", () => {
+  const s = run(initialState(WEEK), "ADVANCE", "ADVANCE", "ADVANCE", "BACK");
+  assert.equal(s.phase, CLUES);
+  assert.equal(s.k, 2);
+});
+
+test("back from clue one of round one returns to the title", () => {
+  const s = run(initialState(WEEK), "ADVANCE", "BACK");
+  assert.equal(s.phase, TITLE);
+});
+
+test("back from the title does nothing", () => {
+  const s = run(initialState(WEEK), "BACK");
+  assert.equal(s.phase, TITLE);
+});
+
+test("back from RESOLVED returns to clue five without replaying the effect", () => {
+  const s = run(initialState(WEEK), "ADVANCE", "WIN", "BACK");
+  assert.equal(s.phase, CLUES);
+  assert.equal(s.k, CLUES_PER_ROUND);
+  assert.equal(s.justResolved, false);
+  assert.equal(s.outcome, null);
+});
+
+test("back from clue one of a later round lands on the previous answer", () => {
+  const s = run(initialState(WEEK), "ADVANCE", "WIN", "NEXT_ROUND", "BACK");
+  assert.equal(s.phase, RESOLVED);
+  assert.equal(s.round, 0);
+  assert.equal(s.k, CLUES_PER_ROUND);
+  assert.equal(s.outcome, "win", "the earlier round's own outcome must be restored");
+  assert.equal(s.justResolved, false, "the effect must not replay");
+});
+
+test("crossing back over a failed round restores 'fail', not 'win'", () => {
+  const s = run(initialState(WEEK),
+    "ADVANCE", "ADVANCE", "ADVANCE", "ADVANCE", "ADVANCE", "FAIL",
+    "NEXT_ROUND", "BACK");
+  assert.equal(s.outcome, "fail");
+});
+
+test("back from END returns to the final answer without replaying the effect", () => {
+  const s = run(initialState(WEEK),
+    "ADVANCE", "WIN", "NEXT_ROUND", "WIN", "NEXT_ROUND", "BACK");
+  assert.equal(s.phase, RESOLVED);
+  assert.equal(s.round, 1);
+  assert.equal(s.outcome, "win");
+  assert.equal(s.justResolved, false);
+});
+
+test("back then forward returns to where you were", () => {
+  const there = run(initialState(WEEK), "ADVANCE", "ADVANCE", "ADVANCE");
+  const andBack = run(there, "BACK", "ADVANCE");
+  assert.equal(andBack.phase, there.phase);
+  assert.equal(andBack.round, there.round);
+  assert.equal(andBack.k, there.k);
+});

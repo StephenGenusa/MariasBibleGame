@@ -66,6 +66,46 @@ export function reduce(state, action) {
       if (s.round >= lastRound) return { ...s, phase: END };
       return { ...s, phase: CLUES, round: s.round + 1, k: 1, outcome: null };
 
+    case "BACK": {
+      // There is nowhere earlier than the title screen.
+      if (s.phase === TITLE) return s;
+
+      // From the end screen, back into the final round's answer.
+      if (s.phase === END) {
+        return {
+          ...s,
+          phase: RESOLVED,
+          round: lastRound,
+          k: CLUES_PER_ROUND,
+          outcome: s.outcomes[lastRound] ?? "fail",
+        };
+      }
+
+      // From an answer, back to the last clue of the same round. The outcome is
+      // cleared so the round can be resolved differently on the way forward.
+      if (s.phase === RESOLVED) {
+        return { ...s, phase: CLUES, k: CLUES_PER_ROUND, outcome: null };
+      }
+
+      // Within a round, step one clue back.
+      if (s.k > 1) return { ...s, k: s.k - 1 };
+
+      // At clue one, cross the boundary into the previous round's answer,
+      // restoring the outcome that round actually had.
+      if (s.round > 0) {
+        const previous = s.round - 1;
+        return {
+          ...s,
+          phase: RESOLVED,
+          round: previous,
+          k: CLUES_PER_ROUND,
+          outcome: s.outcomes[previous] ?? "fail",
+        };
+      }
+
+      return { ...s, phase: TITLE };
+    }
+
     case "RESTART":
       return initialState(s.week);
 
