@@ -53,7 +53,7 @@ function drawParticle(ctx, p) {
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rotation);
-      ctx.fillRect(-p.r * 0.4, -p.r * 1.3, p.r * 0.8, p.r * 2.6);
+      ctx.fillRect(-p.r * 0.38, -p.r * 1.7, p.r * 0.76, p.r * 3.4);
       ctx.restore();
       break;
     }
@@ -108,12 +108,25 @@ export function createEngine(canvas, stage) {
   let lastTime = 0;
   let overlayClass = null;
   let overlayTimer = null;
+  let viewport = { width: 0, height: 0 };
 
+  // The canvas is laid over the stage, not the window. The stage is a
+  // letterboxed 16:9 box, so on a 4:3 iPad the window's corners sit inside the
+  // black bars — emitting into window coordinates fires effects off-screen.
   function resize() {
+    const rect = stage.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.floor(window.innerWidth * dpr);
-    canvas.height = Math.floor(window.innerHeight * dpr);
+
+    canvas.style.left = `${rect.left}px`;
+    canvas.style.top = `${rect.top}px`;
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    viewport = { width: rect.width, height: rect.height };
   }
 
   function clearOverlay() {
@@ -131,7 +144,7 @@ export function createEngine(canvas, stage) {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       stepParticle(p, f);
-      if (p.life <= 0 || p.y - p.r > window.innerHeight + 80) particles.splice(i, 1);
+      if (p.life <= 0 || p.y - p.r > viewport.height + 80) particles.splice(i, 1);
       else drawParticle(ctx, p);
     }
     ctx.globalAlpha = 1;
@@ -158,9 +171,7 @@ export function createEngine(canvas, stage) {
     if (reduced) return;
 
     resize();
-    particles = preset
-      .emit({ width: window.innerWidth, height: window.innerHeight })
-      .slice(0, MAX_PARTICLES);
+    particles = preset.emit(viewport).slice(0, MAX_PARTICLES);
 
     if (particles.length && !raf) {
       lastTime = 0;
@@ -189,6 +200,7 @@ const GOLD = ["#ffd166", "#ffb703", "#ffe6a3", "#f7c948"];
 const PARTY = ["#ff3b6b", "#ffc44d", "#33e08a", "#4db8ff", "#c99bff"];
 const GREY = ["#9aa3b8", "#7b8499", "#b8bfd0", "#6f7891"];
 const RAIN = ["#4a6ea8", "#3b5a8c", "#5c81bd"];
+const SHARD = ["#4a5164", "#39404f", "#5d6579", "#2e3440"];
 
 const rand = (min, max) => min + Math.random() * (max - min);
 const pick = list => list[(Math.random() * list.length) | 0];
@@ -222,7 +234,7 @@ export const WIN_PRESETS = [
     id: "fireworks",
     label: "Fireworks",
     kind: "win",
-    duration: 3600,
+    duration: 4200,
     overlay: null,
     emit({ width, height }) {
       const out = [];
@@ -232,7 +244,7 @@ export const WIN_PRESETS = [
           rand(width * 0.2, width * 0.8),
           rand(height * 0.18, height * 0.45),
           58, PARTY,
-          { delay: i * 26, decay: 0.012 }));
+          { delay: i * 30, decay: 0.0038 }));
       }
       return out;
     },
@@ -241,25 +253,26 @@ export const WIN_PRESETS = [
     id: "cannons",
     label: "Confetti cannons",
     kind: "win",
-    duration: 3200,
+    duration: 5200,
     overlay: null,
     emit({ width, height }) {
       const out = [];
+      // Fired from the stage's own bottom corners, angled up and inward.
       for (const [x, dir] of [[0, 1], [width, -1]]) {
-        for (let i = 0; i < 55; i++) {
-          const speed = rand(9, 17);
-          const angle = rand(-1.15, -0.55); // up and inward
+        for (let i = 0; i < 62; i++) {
+          const speed = rand(10, 18);
+          const angle = rand(-1.2, -0.5); // radians; negative is upward
           out.push(makeParticle({
             x, y: height,
             vx: Math.cos(angle) * speed * dir,
             vy: Math.sin(angle) * speed,
-            r: radius(),
+            r: rand(MAX_RADIUS - 3, MAX_RADIUS),
             color: pick(PARTY),
             shape: "ribbon",
-            spin: rand(-0.3, 0.3),
-            decay: 0.008,
-            gravity: 0.26,
-            drag: 0.988,
+            spin: rand(-0.26, 0.26),
+            decay: 0.0030,
+            gravity: 0.2,
+            drag: 0.991,
           }));
         }
       }
@@ -270,19 +283,19 @@ export const WIN_PRESETS = [
     id: "starburst",
     label: "Starburst",
     kind: "win",
-    duration: 3000,
+    duration: 3600,
     overlay: null,
     emit({ width, height }) {
       // One large radial out of where the answer sits.
       return burst(width / 2, height * 0.5, 140, PARTY,
-        { minSpeed: 5, maxSpeed: 15, gravity: 0.14, decay: 0.011, lift: 0 });
+        { minSpeed: 5, maxSpeed: 15, gravity: 0.14, decay: 0.0042, lift: 0 });
     },
   },
   {
     id: "goldenrain",
     label: "Golden rain",
     kind: "win",
-    duration: 3800,
+    duration: 4600,
     overlay: null,
     emit({ width }) {
       const out = [];
@@ -296,7 +309,7 @@ export const WIN_PRESETS = [
           color: pick(GOLD),
           shape: "disc",
           spin: rand(0.05, 0.2),
-          decay: 0.005,
+          decay: 0.0034,
           gravity: 0.05,
           drag: 0.999,
           delay: Math.random() * 40,
@@ -309,7 +322,7 @@ export const WIN_PRESETS = [
     id: "shockwave",
     label: "Shockwave",
     kind: "win",
-    duration: 2800,
+    duration: 3200,
     overlay: null,
     emit({ width, height }) {
       const out = [];
@@ -324,7 +337,7 @@ export const WIN_PRESETS = [
             vy: Math.sin(angle) * speed,
             r: rand(MIN_RADIUS, MIN_RADIUS + 3),
             color: pick(GOLD),
-            decay: 0.014,
+            decay: 0.0048,
             gravity: 0,
             drag: 0.975,
             delay: ring * 14,
@@ -338,7 +351,7 @@ export const WIN_PRESETS = [
     id: "streamers",
     label: "Streamers",
     kind: "win",
-    duration: 4000,
+    duration: 5600,
     overlay: null,
     emit({ width }) {
       const out = [];
@@ -352,7 +365,7 @@ export const WIN_PRESETS = [
           color: pick(PARTY),
           shape: "ribbon",
           spin: rand(-0.22, 0.22),
-          decay: 0.004,
+          decay: 0.0028,
           gravity: 0.035,
           drag: 0.999,
           delay: Math.random() * 50,
@@ -403,12 +416,14 @@ export const LOSE_PRESETS = [
     id: "shatter",
     label: "Shatter",
     kind: "lose",
-    duration: 3000,
-    overlay: null,
+    duration: 4800,
+    // Grey shards alone read as neutral. The overlay supplies the impact and
+    // the colour drain, so nobody has to guess whether this is good news.
+    overlay: "fx-shatter",
     emit({ width, height }) {
-      return burst(width / 2, height * 0.5, 90, GREY, {
-        minSpeed: 3, maxSpeed: 10, gravity: 0.42, decay: 0.010,
-        shape: "shard", lift: 1,
+      return burst(width / 2, height * 0.5, 90, SHARD, {
+        minSpeed: 2.5, maxSpeed: 8, gravity: 0.34, decay: 0.0032,
+        shape: "shard", lift: 0.5,
       });
     },
   },
@@ -424,7 +439,7 @@ export const LOSE_PRESETS = [
     id: "downpour",
     label: "Downpour",
     kind: "lose",
-    duration: 3200,
+    duration: 3600,
     overlay: null,
     emit({ width }) {
       const out = [];
@@ -437,7 +452,7 @@ export const LOSE_PRESETS = [
           r: rand(MIN_RADIUS, MIN_RADIUS + 2),
           color: pick(RAIN),
           shape: "streak",
-          decay: 0.008,
+          decay: 0.0044,
           gravity: 0.12,
           drag: 1,
           delay: Math.random() * 30,

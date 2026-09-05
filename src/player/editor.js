@@ -252,11 +252,20 @@ export function openEditor({ storage, onLoad, embedded, previewEffect, endPrevie
 
     panel.classList.add("is-away");
     const ms = previewEffect(theme, kind === "win" ? "win" : "fail");
-    previewTimer = setTimeout(() => {
+
+    function finish() {
+      if (!previewTimer) return;
+      clearTimeout(previewTimer);
       previewTimer = null;
+      document.removeEventListener("pointerdown", finish, true);
       panel.classList.remove("is-away");
       endPreview();
-    }, ms + 250);
+    }
+
+    // The panel's own fade costs time, and several presets build slowly, so
+    // hold well past the stated duration. A tap ends it early.
+    previewTimer = setTimeout(finish, ms + 1400);
+    setTimeout(() => document.addEventListener("pointerdown", finish, true), 400);
   }
 
   /* ---- saved weeks ---- */

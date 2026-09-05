@@ -155,11 +155,20 @@ test("the two screen-treatment presets use an overlay and no particles", () => {
   }
 });
 
-test("particle presets declare no overlay", () => {
+test("every preset that is not a pure screen treatment emits particles", () => {
+  // A preset may combine both: shatter uses particles for the shards and an
+  // overlay for the impact and colour drain, which is what makes its valence
+  // unmistakable. Only deflate and iris are overlay-only.
   for (const p of ALL()) {
     if (p.id === "deflate" || p.id === "iris") continue;
-    assert.equal(p.overlay, null, `${p.id} should not set an overlay`);
     assert.ok(p.emit(VIEWPORT).length > 0, `${p.id} emitted nothing`);
+  }
+});
+
+test("an overlay class is a real class name when present", () => {
+  for (const p of ALL()) {
+    if (p.overlay === null) continue;
+    assert.match(p.overlay, /^fx-[a-z]+$/, `${p.id} has a malformed overlay class`);
   }
 });
 
@@ -168,13 +177,21 @@ test("emission scales with the viewport rather than assuming a size", () => {
   assert.ok(wide.every(p => p.x <= 2560 * 1.2), "particles should stay near the viewport");
 });
 
-test("ashfall lingers long enough to be read, not just glimpsed", () => {
-  const p = getPreset("ashfall");
-  assert.ok(p.duration >= 5000, `ashfall runs for only ${p.duration}ms`);
+test("every preset's particles outlive its stated duration", () => {
+  // The original presets all claimed 3-4 seconds while their particles died in
+  // about 1.4, so every effect was over before it looked like it had started.
+  // Duration and decay are paired deliberately now; this keeps them paired.
+  for (const p of ALL()) {
+    const particles = p.emit(VIEWPORT);
+    if (particles.length === 0) continue;
 
-  // Life must outlast the duration, or the flurries vanish mid-effect.
-  const slowest = Math.max(...p.emit(VIEWPORT).map(q => q.decay));
-  const framesAlive = 1 / slowest;
-  assert.ok(framesAlive * (1000 / 60) >= p.duration,
-    "particles decay before the effect is over");
+    const fastest = Math.max(...particles.map(q => q.decay));
+    const msAlive = (1 / fastest) * (1000 / 60);
+    assert.ok(msAlive >= p.duration,
+      `${p.id}: particles last ${Math.round(msAlive)}ms but the effect claims ${p.duration}ms`);
+  }
+});
+
+test("ashfall in particular lingers, as asked", () => {
+  assert.ok(getPreset("ashfall").duration >= 5000);
 });
