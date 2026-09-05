@@ -275,3 +275,20 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .stage.fx-shatter { animation: none; }
 }
+
+/* Crumble replaces the answer with particles cut from its own pixels, so the
+   real text has to vanish the instant they appear - and come back afterwards,
+   because the answer is the one thing that must stay readable. */
+.stage.fx-crumble .answer-text {
+  animation: fx-crumble-text 4200ms ease-in-out forwards;
+}
+@keyframes fx-crumble-text {
+  0%   { opacity: 1; }
+  3%   { opacity: 0; }
+  74%  { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage.fx-crumble .answer-text { animation: none; }
+}

@@ -81,15 +81,15 @@ import {
 const VIEWPORT = { width: 1280, height: 720 };
 const ALL = () => [...WIN_PRESETS, ...LOSE_PRESETS];
 
-test("there are six win presets and five lose presets", () => {
+test("there are six win presets and six lose presets", () => {
   assert.equal(WIN_PRESETS.length, 6);
-  assert.equal(LOSE_PRESETS.length, 5);
+  assert.equal(LOSE_PRESETS.length, 6);
   assert.deepEqual(
     WIN_PRESETS.map(p => p.id),
     ["fireworks", "cannons", "starburst", "goldenrain", "shockwave", "streamers"]);
   assert.deepEqual(
     LOSE_PRESETS.map(p => p.id),
-    ["ashfall", "deflate", "shatter", "iris", "downpour"]);
+    ["ashfall", "deflate", "shatter", "iris", "crumble", "downpour"]);
 });
 
 test("every preset is uniquely identified and labelled", () => {
@@ -194,4 +194,43 @@ test("every preset's particles outlive its stated duration", () => {
 
 test("ashfall in particular lingers, as asked", () => {
   assert.ok(getPreset("ashfall").duration >= 5000);
+});
+
+test("crumble turns the answer's own ink into particles when it can", () => {
+  const p = getPreset("crumble");
+  assert.equal(p.usesText, true, "crumble must ask the engine for the text");
+
+  // Two rows of ink, three columns, standing in for a rendered word.
+  const ink = {
+    step: 10,
+    width: 30,
+    color: "#ffc44d",
+    points: [
+      { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 },
+      { x: 0, y: 10 }, { x: 10, y: 10 }, { x: 20, y: 10 },
+    ],
+  };
+  const out = p.emit({ ...VIEWPORT, ink });
+
+  assert.equal(out.length, ink.points.length, "one particle per ink point");
+  assert.equal(out[0].x, 0, "particles start exactly where the ink was");
+  assert.equal(out[0].color, "#ffc44d", "and in the answer's own colour");
+  assert.ok(out.every(q => q.r >= MIN_RADIUS && q.r <= MAX_RADIUS));
+  assert.ok(out.every(q => q.gravity > 0.4), "they must actually fall");
+});
+
+test("crumble staggers so the word collapses across, not all at once", () => {
+  const ink = {
+    step: 10, width: 100, color: "#ffffff",
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+  };
+  const [left, right] = getPreset("crumble").emit({ ...VIEWPORT, ink });
+  assert.ok(right.delay > left.delay, "the far side should go later");
+});
+
+test("crumble still works with no text to sample", () => {
+  // Node has no DOM, and the engine returns null ink if the answer is empty.
+  const out = getPreset("crumble").emit(VIEWPORT);
+  assert.ok(out.length > 0, "it must degrade to something rather than nothing");
+  assert.ok(out.every(q => /^#[0-9a-f]{6}$/i.test(q.color)));
 });

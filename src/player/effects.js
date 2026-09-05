@@ -129,6 +129,71 @@ export function createEngine(canvas, stage) {
     viewport = { width: rect.width, height: rect.height };
   }
 
+  function toHex(color) {
+    const m = String(color).match(/(\d+)\D+(\d+)\D+(\d+)/);
+    if (!m) return "#e8eaf0";
+    return "#" + [1, 2, 3].map(i => Number(m[i]).toString(16).padStart(2, "0")).join("");
+  }
+
+  // Render the answer to an offscreen canvas and read back where the ink is,
+  // so a preset can turn the actual word into particles rather than
+  // approximating it with a burst at the centre of the screen.
+  function sampleAnswerInk(maxPoints) {
+    const el = stage.querySelector(".answer-text");
+    if (!el || !el.textContent.trim()) return null;
+
+    const rect = el.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) return null;
+
+    const style = getComputedStyle(el);
+    const w = Math.ceil(rect.width);
+    const h = Math.ceil(rect.height);
+
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext("2d", { willReadFrequently: true });
+    if (!octx) return null;
+
+    octx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    octx.textAlign = "center";
+    octx.textBaseline = "middle";
+    octx.fillStyle = "#ffffff";
+    octx.fillText(el.textContent, w / 2, h / 2);
+
+    let data;
+    try {
+      data = octx.getImageData(0, 0, w, h).data;
+    } catch {
+      return null;   // tainted or unavailable; the preset falls back
+    }
+
+    // Widen the sampling grid until the word fits inside the particle budget.
+    let step = 9;
+    let points = [];
+    for (let attempt = 0; attempt < 7; attempt++) {
+      points = [];
+      for (let y = 0; y < h; y += step) {
+        for (let x = 0; x < w; x += step) {
+          if (data[(y * w + x) * 4 + 3] > 128) points.push({ x, y });
+        }
+      }
+      if (points.length <= maxPoints) break;
+      step = Math.ceil(step * 1.28);
+    }
+    if (!points.length) return null;
+
+    const originX = rect.left - stageRect.left;
+    const originY = rect.top - stageRect.top;
+    return {
+      step,
+      width: rect.width,
+      color: toHex(style.color),
+      points: points.map(pt => ({ x: originX + pt.x, y: originY + pt.y })),
+    };
+  }
+
   function clearOverlay() {
     if (overlayClass) stage.classList.remove(overlayClass);
     overlayClass = null;
@@ -171,7 +236,9 @@ export function createEngine(canvas, stage) {
     if (reduced) return;
 
     resize();
-    particles = preset.emit(viewport).slice(0, MAX_PARTICLES);
+    const context = { ...viewport };
+    if (preset.usesText) context.ink = sampleAnswerInk(MAX_PARTICLES - 20);
+    particles = preset.emit(context).slice(0, MAX_PARTICLES);
 
     if (particles.length && !raf) {
       lastTime = 0;
@@ -434,6 +501,44 @@ export const LOSE_PRESETS = [
     duration: 2800,
     overlay: "fx-iris",
     emit() { return []; },
+  },
+  {
+    id: "crumble",
+    label: "Crumble",
+    kind: "lose",
+    duration: 4200,
+    overlay: "fx-crumble",
+    // The engine hands over the answer's own ink, so these particles start out
+    // spelling the word. Without a DOM to measure, it degrades to a burst.
+    usesText: true,
+    emit({ width, height, ink }) {
+      if (!ink) {
+        return burst(width / 2, height * 0.5, 80, SHARD, {
+          minSpeed: 1, maxSpeed: 4, gravity: 0.5, decay: 0.0032, lift: -1,
+        });
+      }
+
+      // Particle size follows the sampling grid so the word stays legible for
+      // the moment before it goes.
+      const r = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, ink.step * 0.62));
+
+      return ink.points.map(pt => makeParticle({
+        x: pt.x,
+        y: pt.y,
+        vx: rand(-0.35, 0.35),
+        vy: rand(-0.4, 0.1),
+        r,
+        color: ink.color,
+        shape: "circle",
+        gravity: 0.52,
+        drag: 0.995,
+        spin: rand(-0.1, 0.1),
+        decay: 0.0032,
+        // Collapse left to right, so it reads as crumbling rather than
+        // the whole word dropping at once.
+        delay: ((pt.x / Math.max(1, ink.width + 1)) * 22) + Math.random() * 9,
+      }));
+    },
   },
   {
     id: "downpour",
