@@ -40,7 +40,7 @@ export function openEditor({ storage, onLoad, embedded }) {
     <div class="editor-inner">
       <h2>Load a week</h2>
       <p class="editor-hint">Paste the week's list exactly as it arrived: the
-        character's name on its own line, a blank line, then the five clues.</p>
+        answer on its own line, a blank line, then the five clues.</p>
       <textarea class="editor-text" rows="12" spellcheck="false"
         placeholder="Rebekah&#10;&#10;An answer to prayer&#10;Animal lover&#10;..."></textarea>
       <div class="editor-row">
