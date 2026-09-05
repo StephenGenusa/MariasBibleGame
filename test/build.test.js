@@ -59,3 +59,16 @@ test("the service worker version changes when the page does", () => {
   assert.match(sw, /const CACHE = "bible-clue-[0-9a-f]{8}"/,
     "the cache name must be content-derived so an update actually lands");
 });
+
+test("the hidden attribute beats the layout rules that fight it", () => {
+  // Several overlays set `display: flex`, which overrides the UA stylesheet's
+  // `[hidden] { display: none }`. Without an explicit override every screen
+  // renders at once and the last one in the DOM covers the game.
+  const css = readFileSync("src/player/style.css", "utf8");
+  assert.match(css, /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/,
+    "style.css must force [hidden] to display:none");
+
+  const html = readFileSync("dist/index.html", "utf8");
+  assert.match(html, /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/,
+    "the override must survive into the built file");
+});
