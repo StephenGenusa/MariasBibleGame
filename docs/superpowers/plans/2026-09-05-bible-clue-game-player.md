@@ -1516,13 +1516,21 @@ test("life decays and can be driven to zero", () => {
   assert.ok(p.life <= 0, "particle should be spent");
 });
 
-test("a fractional frame count scales the step", () => {
-  const a = makeParticle({ vy: 0, gravity: 1, drag: 1 });
-  const b = makeParticle({ vy: 0, gravity: 1, drag: 1 });
+test("the frame count scales displacement linearly", () => {
+  const a = makeParticle({ x: 0, vx: 3, gravity: 0, drag: 1 });
+  const b = makeParticle({ x: 0, vx: 3, gravity: 0, drag: 1 });
   stepParticle(a, 2);
   stepParticle(b, 1);
-  stepParticle(b, 1);
-  assert.ok(Math.abs(a.y - b.y) < 1e-9, "two half steps should match one whole step");
+  assert.equal(a.x, 6);
+  assert.equal(b.x, 3);
+});
+
+test("a long frame gap applies proportionally more gravity", () => {
+  // This is Euler integration, so two half-steps do NOT equal one whole step.
+  // What must hold is that a single step scales with the frame count.
+  const p = makeParticle({ vy: 0, gravity: 0.5, drag: 1 });
+  stepParticle(p, 3);
+  assert.equal(p.vy, 1.5);
 });
 
 test("a delayed particle holds still and burns off its delay", () => {
@@ -1741,7 +1749,7 @@ export function createEngine(canvas, stage) {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test test/effects.test.js`
-Expected: PASS, 8 tests.
+Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -2192,7 +2200,7 @@ export function getPreset(id) {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `node --test test/effects.test.js`
-Expected: PASS, 19 tests.
+Expected: PASS, 20 tests.
 
 - [ ] **Step 6: Commit**
 
