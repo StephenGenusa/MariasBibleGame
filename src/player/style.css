@@ -127,3 +127,37 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .clue { transition-duration: 1ms; transform: none; }
 }
+
+/* Screen-treatment effects. These are the two presets that emit no particles. */
+@keyframes fx-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-8px, 3px); }
+  40% { transform: translate(7px, -4px); }
+  60% { transform: translate(-5px, -2px); }
+  80% { transform: translate(4px, 3px); }
+}
+
+.stage.fx-deflate {
+  animation: fx-shake 520ms ease-in-out 1;
+  filter: saturate(0.25);
+  transition: filter 900ms ease-out;
+}
+.stage.fx-deflate::after {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  box-shadow: inset 0 0 clamp(60px, 14vh, 190px) clamp(20px, 5vh, 70px) rgba(150, 20, 45, 0.72);
+}
+
+.stage.fx-iris::after {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: #000;
+  clip-path: circle(140% at 50% 50%);
+  animation: fx-close 2600ms ease-in forwards;
+}
+@keyframes fx-close {
+  to { clip-path: circle(26% at 50% 50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage.fx-deflate { animation: none; }
+  .stage.fx-iris::after { animation: none; clip-path: circle(40% at 50% 50%); }
+}
