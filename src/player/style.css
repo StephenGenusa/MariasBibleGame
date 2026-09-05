@@ -1,0 +1,129 @@
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --pad: clamp(16px, 3vh, 40px);
+}
+
+/* Eight flat palettes. Each sets a ground, a foreground, a muted tone and an accent. */
+.stage[data-bg="slate"]     { --bg:#2b3444; --fg:#f2f5fa; --muted:#8f9bb3; --accent:#6fd0ff; }
+.stage[data-bg="ink"]       { --bg:#141821; --fg:#eef1f7; --muted:#7b8499; --accent:#ffc44d; }
+.stage[data-bg="parchment"] { --bg:#efe6d2; --fg:#2a2419; --muted:#7d7259; --accent:#a8501e; }
+.stage[data-bg="teal"]      { --bg:#0f3d3e; --fg:#eafaf7; --muted:#7fada9; --accent:#ffd166; }
+.stage[data-bg="plum"]      { --bg:#3a2440; --fg:#f8eefb; --muted:#a68bad; --accent:#ffb3c7; }
+.stage[data-bg="forest"]    { --bg:#1e3524; --fg:#eef6ec; --muted:#8ba98d; --accent:#ffd97d; }
+.stage[data-bg="charcoal"]  { --bg:#232323; --fg:#f4f4f4; --muted:#8d8d8d; --accent:#7fd4a0; }
+.stage[data-bg="sand"]      { --bg:#d9c9a8; --fg:#2c2617; --muted:#7a6f55; --accent:#8f3d1f; }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%; margin: 0;
+  background: #000;
+  font-family: var(--font);
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* 16:9 stage, centred and letterboxed on any other aspect ratio. */
+.stage {
+  position: absolute; inset: 0; margin: auto;
+  aspect-ratio: 16 / 9;
+  max-width: 100%; max-height: 100%;
+  background: var(--bg);
+  background-size: cover; background-position: center;
+  color: var(--fg);
+  display: flex; flex-direction: column;
+  padding: var(--pad);
+  overflow: hidden;
+}
+
+/* A scrim keeps clue text legible when a photo background is set. */
+.stage[style*="background-image"]::before {
+  content: ""; position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+.stage > * { position: relative; z-index: 1; }
+
+.hud {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: clamp(13px, 2.2vh, 22px); font-weight: 700;
+  color: var(--muted); letter-spacing: 0.02em;
+  flex: 0 0 auto;
+}
+.hud-points { color: var(--accent); }
+
+.clues {
+  list-style: none; margin: 0; padding: 0;
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(6px, 1.6vh, 20px);
+  max-width: 46ch; width: 100%; margin-inline: auto;
+}
+
+/* Every slot occupies its space from the start of the round; only opacity
+   changes. This is what keeps the list in the same place as clues appear. */
+.clue {
+  display: flex; gap: clamp(10px, 2vw, 24px); align-items: baseline;
+  font-size: clamp(22px, 4.2vh, 44px); font-weight: 600; line-height: 1.25;
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+.clue.is-visible { opacity: 1; transform: none; }
+.clue-num {
+  flex: 0 0 auto; min-width: 1.4em;
+  color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+.answer {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 82%, black);
+  padding: var(--pad); text-align: center;
+  z-index: 3;
+}
+.answer-text {
+  font-size: clamp(40px, 10vh, 110px); font-weight: 800; letter-spacing: -0.02em;
+}
+.answer[data-outcome="win"]  .answer-text { color: var(--accent); }
+.answer[data-outcome="fail"] .answer-text { color: var(--muted); }
+
+.controls {
+  flex: 0 0 auto;
+  display: flex; justify-content: space-between; align-items: flex-end;
+}
+.btn {
+  font: inherit; font-size: clamp(26px, 5vh, 52px); line-height: 1;
+  width: clamp(64px, 11vh, 116px); aspect-ratio: 1;
+  border-radius: 50%; border: 3px solid currentColor;
+  background: transparent; cursor: pointer;
+}
+.btn-win  { color: #3ddc8a; }
+.btn-fail { color: #ff5c7a; }
+.btn:disabled { opacity: 0.22; cursor: default; }
+
+.next-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  padding: clamp(12px, 2.4vh, 26px);
+  text-align: center; font-size: clamp(15px, 2.6vh, 26px); font-weight: 700;
+  color: var(--bg); background: var(--accent); cursor: pointer;
+}
+
+.screen {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(10px, 2vh, 22px);
+  background: var(--bg); padding: var(--pad); text-align: center;
+}
+.screen h1 { margin: 0; font-size: clamp(30px, 7vh, 74px); font-weight: 800; }
+.lede { margin: 0; max-width: 42ch; font-size: clamp(15px, 2.6vh, 26px); font-weight: 600; color: var(--fg); }
+.scoring { border-collapse: collapse; font-size: clamp(14px, 2.4vh, 24px); font-weight: 700; }
+.scoring td { padding: 0.18em 0.9em; }
+.scoring td:first-child { text-align: right; color: var(--muted); }
+.scoring td:last-child { text-align: left; color: var(--accent); }
+.hint { margin: 0; color: var(--muted); font-size: clamp(13px, 2.2vh, 22px); font-weight: 700; }
+
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .clue { transition-duration: 1ms; transform: none; }
+}

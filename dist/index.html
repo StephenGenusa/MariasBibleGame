@@ -8,11 +8,182 @@
 <meta name="theme-color" content="#12141a">
 <title>Bible Clue Game</title>
 <style>
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --pad: clamp(16px, 3vh, 40px);
+}
+
+/* Eight flat palettes. Each sets a ground, a foreground, a muted tone and an accent. */
+.stage[data-bg="slate"]     { --bg:#2b3444; --fg:#f2f5fa; --muted:#8f9bb3; --accent:#6fd0ff; }
+.stage[data-bg="ink"]       { --bg:#141821; --fg:#eef1f7; --muted:#7b8499; --accent:#ffc44d; }
+.stage[data-bg="parchment"] { --bg:#efe6d2; --fg:#2a2419; --muted:#7d7259; --accent:#a8501e; }
+.stage[data-bg="teal"]      { --bg:#0f3d3e; --fg:#eafaf7; --muted:#7fada9; --accent:#ffd166; }
+.stage[data-bg="plum"]      { --bg:#3a2440; --fg:#f8eefb; --muted:#a68bad; --accent:#ffb3c7; }
+.stage[data-bg="forest"]    { --bg:#1e3524; --fg:#eef6ec; --muted:#8ba98d; --accent:#ffd97d; }
+.stage[data-bg="charcoal"]  { --bg:#232323; --fg:#f4f4f4; --muted:#8d8d8d; --accent:#7fd4a0; }
+.stage[data-bg="sand"]      { --bg:#d9c9a8; --fg:#2c2617; --muted:#7a6f55; --accent:#8f3d1f; }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%; margin: 0;
+  background: #000;
+  font-family: var(--font);
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* 16:9 stage, centred and letterboxed on any other aspect ratio. */
+.stage {
+  position: absolute; inset: 0; margin: auto;
+  aspect-ratio: 16 / 9;
+  max-width: 100%; max-height: 100%;
+  background: var(--bg);
+  background-size: cover; background-position: center;
+  color: var(--fg);
+  display: flex; flex-direction: column;
+  padding: var(--pad);
+  overflow: hidden;
+}
+
+/* A scrim keeps clue text legible when a photo background is set. */
+.stage[style*="background-image"]::before {
+  content: ""; position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+.stage > * { position: relative; z-index: 1; }
+
+.hud {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: clamp(13px, 2.2vh, 22px); font-weight: 700;
+  color: var(--muted); letter-spacing: 0.02em;
+  flex: 0 0 auto;
+}
+.hud-points { color: var(--accent); }
+
+.clues {
+  list-style: none; margin: 0; padding: 0;
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(6px, 1.6vh, 20px);
+  max-width: 46ch; width: 100%; margin-inline: auto;
+}
+
+/* Every slot occupies its space from the start of the round; only opacity
+   changes. This is what keeps the list in the same place as clues appear. */
+.clue {
+  display: flex; gap: clamp(10px, 2vw, 24px); align-items: baseline;
+  font-size: clamp(22px, 4.2vh, 44px); font-weight: 600; line-height: 1.25;
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+.clue.is-visible { opacity: 1; transform: none; }
+.clue-num {
+  flex: 0 0 auto; min-width: 1.4em;
+  color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+.answer {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 82%, black);
+  padding: var(--pad); text-align: center;
+  z-index: 3;
+}
+.answer-text {
+  font-size: clamp(40px, 10vh, 110px); font-weight: 800; letter-spacing: -0.02em;
+}
+.answer[data-outcome="win"]  .answer-text { color: var(--accent); }
+.answer[data-outcome="fail"] .answer-text { color: var(--muted); }
+
+.controls {
+  flex: 0 0 auto;
+  display: flex; justify-content: space-between; align-items: flex-end;
+}
+.btn {
+  font: inherit; font-size: clamp(26px, 5vh, 52px); line-height: 1;
+  width: clamp(64px, 11vh, 116px); aspect-ratio: 1;
+  border-radius: 50%; border: 3px solid currentColor;
+  background: transparent; cursor: pointer;
+}
+.btn-win  { color: #3ddc8a; }
+.btn-fail { color: #ff5c7a; }
+.btn:disabled { opacity: 0.22; cursor: default; }
+
+.next-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  padding: clamp(12px, 2.4vh, 26px);
+  text-align: center; font-size: clamp(15px, 2.6vh, 26px); font-weight: 700;
+  color: var(--bg); background: var(--accent); cursor: pointer;
+}
+
+.screen {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(10px, 2vh, 22px);
+  background: var(--bg); padding: var(--pad); text-align: center;
+}
+.screen h1 { margin: 0; font-size: clamp(30px, 7vh, 74px); font-weight: 800; }
+.lede { margin: 0; max-width: 42ch; font-size: clamp(15px, 2.6vh, 26px); font-weight: 600; color: var(--fg); }
+.scoring { border-collapse: collapse; font-size: clamp(14px, 2.4vh, 24px); font-weight: 700; }
+.scoring td { padding: 0.18em 0.9em; }
+.scoring td:first-child { text-align: right; color: var(--muted); }
+.scoring td:last-child { text-align: left; color: var(--accent); }
+.hint { margin: 0; color: var(--muted); font-size: clamp(13px, 2.2vh, 22px); font-weight: 700; }
+
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .clue { transition-duration: 1ms; transform: none; }
+}
 
 </style>
 </head>
 <body>
-<div id="stage" aria-live="polite"></div>
+<div id="stage" class="stage" data-bg="slate" aria-live="polite">
+  <header class="hud">
+    <span class="hud-round"></span>
+    <span class="hud-points"></span>
+  </header>
+
+  <ol class="clues">
+    <li class="clue"><span class="clue-num">1</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">2</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">3</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">4</span><span class="clue-text"></span></li>
+    <li class="clue"><span class="clue-num">5</span><span class="clue-text"></span></li>
+  </ol>
+
+  <div class="answer" hidden><span class="answer-text"></span></div>
+
+  <footer class="controls" hidden>
+    <button class="btn btn-win" type="button" aria-label="Someone guessed correctly">&check;</button>
+    <button class="btn btn-fail" type="button" aria-label="Nobody guessed it">&times;</button>
+  </footer>
+
+  <div class="next-bar" role="button" tabindex="0" hidden>Next round &darr;</div>
+
+  <section class="screen screen-title" hidden>
+    <h1>Who Am I?</h1>
+    <p class="lede">Five clues about a Bible character are revealed one at a time.
+      Once you think you know, call out your name and lock in your answer.
+      The earlier you call it, the more it is worth.</p>
+    <table class="scoring">
+      <tr><td>By clue 1</td><td>5 points</td></tr>
+      <tr><td>By clue 2</td><td>4 points</td></tr>
+      <tr><td>By clue 3</td><td>3 points</td></tr>
+      <tr><td>By clue 4</td><td>2 points</td></tr>
+      <tr><td>By clue 5</td><td>1 point</td></tr>
+    </table>
+    <p class="hint">Press space to begin</p>
+  </section>
+
+  <section class="screen screen-end" hidden>
+    <h1>That&rsquo;s all for today</h1>
+    <p class="hint">Press space to start over</p>
+  </section>
+</div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="application/json" id="game-data">{
@@ -42,17 +213,366 @@
 /* ---------- parser.js ---------- */
 // Pasted week text -> rounds and warnings. No DOM access, ever.
 
+const CLUES_EXPECTED = 5;
+const RULES_HEADING = /^rules\b/i;
+const SCORING_LINE = /points?\s*$/i;
+
+// A block is one or more non-blank lines. A line of only whitespace separates
+// blocks: the source emails use lines containing a single space, not truly
+// empty lines, so trim before testing.
+function splitBlocks(text) {
+  const blocks = [];
+  let current = [];
+  for (const rawLine of String(text ?? "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line === "") {
+      if (current.length) { blocks.push(current); current = []; }
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.length) blocks.push(current);
+  return blocks;
+}
+
+function isPreamble(block) {
+  if (RULES_HEADING.test(block[0])) return true;
+  return block.every(line => SCORING_LINE.test(line));
+}
+
+function parseWeekText(text) {
+  const warnings = [];
+  const rounds = [];
+  const blocks = splitBlocks(text).filter(block => !isPreamble(block));
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    if (block.length === 1) {
+      // The shape the source emails actually use: the character's name alone,
+      // a blank line, then the clues as a block of their own.
+      const next = blocks[i + 1];
+      if (next && next.length >= 2) {
+        rounds.push({ answer: block[0], clues: next });
+        i++; // the clue block belongs to this round
+      } else {
+        warnings.push(`"${block[0]}" has no clues and was skipped.`);
+      }
+      continue;
+    }
+
+    // A block that already holds the name and its clues together.
+    const [answer, ...clues] = block;
+    rounds.push({ answer, clues });
+  }
+
+  for (const round of rounds) {
+    if (round.clues.length !== CLUES_EXPECTED) {
+      warnings.push(`"${round.answer}" has ${round.clues.length} clues, expected ${CLUES_EXPECTED}.`);
+    }
+  }
+
+  const seen = new Set();
+  for (const round of rounds) {
+    const key = round.answer.toLowerCase();
+    if (seen.has(key)) warnings.push(`"${round.answer}" appears more than once.`);
+    seen.add(key);
+  }
+
+  if (rounds.length === 0) warnings.push("No rounds found. Check the pasted text.");
+  return { rounds, warnings };
+}
+
 /* ---------- machine.js ---------- */
 // The whole game, as a pure reducer. No DOM, no timers.
 
+const TITLE = "TITLE";
+const CLUES = "CLUES";
+const RESOLVED = "RESOLVED";
+const END = "END";
+
+const CLUES_PER_ROUND = 5;
+
+function pointValue(k) {
+  return CLUES_PER_ROUND + 1 - k;
+}
+
+function initialState(week) {
+  return {
+    phase: TITLE,
+    round: 0,
+    k: 1,
+    outcome: null,
+    outcomes: [],
+    justResolved: false,
+    week,
+  };
+}
+
+function recordOutcome(outcomes, round, outcome) {
+  const next = outcomes.slice();
+  next[round] = outcome;
+  return next;
+}
+
+function reduce(state, action) {
+  const lastRound = state.week.rounds.length - 1;
+  // Every path starts from justResolved: false, so only WIN and FAIL can set it.
+  const s = { ...state, justResolved: false };
+
+  switch (action.type) {
+    case "ADVANCE":
+      if (s.phase === TITLE) return { ...s, phase: CLUES, round: 0, k: 1 };
+      if (s.phase !== CLUES) return s;
+      return s.k >= CLUES_PER_ROUND ? s : { ...s, k: s.k + 1 };
+
+    case "WIN":
+      if (s.phase !== CLUES) return s;
+      return {
+        ...s,
+        phase: RESOLVED,
+        outcome: "win",
+        outcomes: recordOutcome(s.outcomes, s.round, "win"),
+        justResolved: true,
+      };
+
+    case "FAIL":
+      // Only meaningful once every clue has been shown.
+      if (s.phase !== CLUES || s.k < CLUES_PER_ROUND) return s;
+      return {
+        ...s,
+        phase: RESOLVED,
+        outcome: "fail",
+        outcomes: recordOutcome(s.outcomes, s.round, "fail"),
+        justResolved: true,
+      };
+
+    case "NEXT_ROUND":
+      if (s.phase !== RESOLVED) return s;
+      if (s.round >= lastRound) return { ...s, phase: END };
+      return { ...s, phase: CLUES, round: s.round + 1, k: 1, outcome: null };
+
+    case "BACK": {
+      // There is nowhere earlier than the title screen.
+      if (s.phase === TITLE) return s;
+
+      // From the end screen, back into the final round's answer.
+      if (s.phase === END) {
+        return {
+          ...s,
+          phase: RESOLVED,
+          round: lastRound,
+          k: CLUES_PER_ROUND,
+          outcome: s.outcomes[lastRound] ?? "fail",
+        };
+      }
+
+      // From an answer, back to the last clue of the same round. The outcome is
+      // cleared so the round can be resolved differently on the way forward.
+      if (s.phase === RESOLVED) {
+        return { ...s, phase: CLUES, k: CLUES_PER_ROUND, outcome: null };
+      }
+
+      // Within a round, step one clue back.
+      if (s.k > 1) return { ...s, k: s.k - 1 };
+
+      // At clue one, cross the boundary into the previous round's answer,
+      // restoring the outcome that round actually had.
+      if (s.round > 0) {
+        const previous = s.round - 1;
+        return {
+          ...s,
+          phase: RESOLVED,
+          round: previous,
+          k: CLUES_PER_ROUND,
+          outcome: s.outcomes[previous] ?? "fail",
+        };
+      }
+
+      return { ...s, phase: TITLE };
+    }
+
+    case "RESTART":
+      return initialState(s.week);
+
+    default:
+      return s;
+  }
+}
+
 /* ---------- storage.js ---------- */
-// A small library of weeks in localStorage.
+// A small library of weeks in localStorage. Every path degrades to the
+// embedded week rather than throwing: iOS can refuse storage access outright.
+
+const WEEKS_KEY = "bibleClueGame.weeks";
+const ACTIVE_KEY = "bibleClueGame.activeWeekId";
+const MAX_WEEKS = 10;
+
+function isWeek(value) {
+  return Boolean(value)
+    && typeof value === "object"
+    && typeof value.id === "string"
+    && Array.isArray(value.rounds)
+    && value.rounds.length > 0;
+}
+
+function createStorage(backing) {
+  function read(key) {
+    try {
+      return backing ? backing.getItem(key) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function write(key, value) {
+    try {
+      if (backing) backing.setItem(key, value);
+    } catch {
+      // Storage unavailable. The in-memory session still works.
+    }
+  }
+
+  function loadWeeks() {
+    const raw = read(WEEKS_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter(isWeek) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persist(weeks) {
+    write(WEEKS_KEY, JSON.stringify(weeks));
+    return weeks;
+  }
+
+  function setActiveWeekId(id) {
+    write(ACTIVE_KEY, id);
+  }
+
+  function saveWeek(newWeek) {
+    if (!isWeek(newWeek)) return loadWeeks();
+    const weeks = loadWeeks().filter(w => w.id !== newWeek.id);
+    weeks.push(newWeek);
+    // Oldest first, so trimming from the front drops the oldest.
+    const trimmed = weeks.slice(-MAX_WEEKS);
+    persist(trimmed);
+    setActiveWeekId(newWeek.id);
+    return trimmed;
+  }
+
+  function deleteWeek(id) {
+    const remaining = loadWeeks().filter(w => w.id !== id);
+    persist(remaining);
+    if (read(ACTIVE_KEY) === id) {
+      const newest = remaining.at(-1);
+      if (newest) {
+        setActiveWeekId(newest.id);
+      } else {
+        try {
+          if (backing) backing.removeItem(ACTIVE_KEY);
+        } catch {
+          // Nothing to do; getActiveWeek falls back on its own.
+        }
+      }
+    }
+    return remaining;
+  }
+
+  function getActiveWeek(embeddedWeek) {
+    const weeks = loadWeeks();
+    if (weeks.length === 0) return embeddedWeek;
+    const activeId = read(ACTIVE_KEY);
+    return weeks.find(w => w.id === activeId) ?? weeks.at(-1) ?? embeddedWeek;
+  }
+
+  return { loadWeeks, saveWeek, deleteWeek, setActiveWeekId, getActiveWeek };
+}
 
 /* ---------- effects.js ---------- */
 // Canvas particle engine and its presets.
 
 /* ---------- render.js ---------- */
 // A pure view model plus a renderer too dumb to hold a bug.
+
+
+const BACKGROUNDS = [
+  "slate", "ink", "parchment", "teal", "plum", "forest", "charcoal", "sand",
+];
+
+function viewModel(state) {
+  const { phase, round, k, week } = state;
+  const current = week.rounds[round] ?? { answer: "", clues: [] };
+  const points = pointValue(k);
+
+  const clues = [];
+  for (let i = 0; i < CLUES_PER_ROUND; i++) {
+    clues.push({
+      n: i + 1,
+      text: current.clues[i] ?? "",
+      // Every slot is rendered; visibility alone changes. Reserving all five
+      // is what keeps the list in the same place as clues appear.
+      visible: phase !== TITLE && phase !== END && i < k,
+    });
+  }
+
+  return {
+    phase,
+    roundLabel: `Round ${round + 1} of ${week.rounds.length}`,
+    pointsLabel: `Worth ${points} ${points === 1 ? "point" : "points"}`,
+    clues,
+    answer: current.answer,
+    outcome: state.outcome,
+    showTitle: phase === TITLE,
+    showEnd: phase === END,
+    showControls: phase === CLUES,
+    failEnabled: phase === CLUES && k >= CLUES_PER_ROUND,
+    showAnswer: phase === RESOLVED,
+    showNext: phase === RESOLVED,
+  };
+}
+
+function createRenderer(root) {
+  const $ = sel => root.querySelector(sel);
+  const clueNodes = Array.from(root.querySelectorAll(".clue"));
+  const roundLabel = $(".hud-round");
+  const pointsLabel = $(".hud-points");
+  const answerPanel = $(".answer");
+  const answerText = $(".answer-text");
+  const controls = $(".controls");
+  const failButton = $(".btn-fail");
+  const nextBar = $(".next-bar");
+  const titleScreen = $(".screen-title");
+  const endScreen = $(".screen-end");
+
+  function render(vm) {
+    roundLabel.textContent = vm.roundLabel;
+    pointsLabel.textContent = vm.pointsLabel;
+
+    clueNodes.forEach((node, i) => {
+      const clue = vm.clues[i];
+      node.querySelector(".clue-text").textContent = clue.text;
+      node.classList.toggle("is-visible", clue.visible);
+    });
+
+    answerText.textContent = vm.answer;
+    answerPanel.dataset.outcome = vm.outcome ?? "";
+
+    titleScreen.hidden = !vm.showTitle;
+    endScreen.hidden = !vm.showEnd;
+    answerPanel.hidden = !vm.showAnswer;
+    nextBar.hidden = !vm.showNext;
+    controls.hidden = !vm.showControls;
+    failButton.disabled = !vm.failEnabled;
+
+    root.dataset.phase = vm.phase;
+  }
+
+  return { render };
+}
 
 /* ---------- input.js ---------- */
 // Keys and taps -> action types.
