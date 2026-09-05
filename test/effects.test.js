@@ -10,7 +10,7 @@ test("the compression budget is what the spec says", () => {
   assert.equal(MAX_RADIUS, 14);
   assert.equal(MAX_PARTICLES, 250);
   assert.equal(MIN_DURATION, 2500);
-  assert.equal(MAX_DURATION, 4000);
+  assert.equal(MAX_DURATION, 7000);
 });
 
 test("a particle gets sane defaults", () => {
@@ -166,4 +166,15 @@ test("particle presets declare no overlay", () => {
 test("emission scales with the viewport rather than assuming a size", () => {
   const wide = getPreset("downpour").emit({ width: 2560, height: 1440 });
   assert.ok(wide.every(p => p.x <= 2560 * 1.2), "particles should stay near the viewport");
+});
+
+test("ashfall lingers long enough to be read, not just glimpsed", () => {
+  const p = getPreset("ashfall");
+  assert.ok(p.duration >= 5000, `ashfall runs for only ${p.duration}ms`);
+
+  // Life must outlast the duration, or the flurries vanish mid-effect.
+  const slowest = Math.max(...p.emit(VIEWPORT).map(q => q.decay));
+  const framesAlive = 1 / slowest;
+  assert.ok(framesAlive * (1000 / 60) >= p.duration,
+    "particles decay before the effect is over");
 });

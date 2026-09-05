@@ -7,7 +7,7 @@ export const MIN_RADIUS = 6;
 export const MAX_RADIUS = 14;
 export const MAX_PARTICLES = 250;
 export const MIN_DURATION = 2500;
-export const MAX_DURATION = 4000;
+export const MAX_DURATION = 7000;
 
 export function makeParticle(overrides = {}) {
   return {
@@ -368,7 +368,7 @@ export const LOSE_PRESETS = [
     id: "ashfall",
     label: "Ashfall",
     kind: "lose",
-    duration: 3600,
+    duration: 6000,
     overlay: null,
     emit({ width }) {
       const out = [];
@@ -380,7 +380,9 @@ export const LOSE_PRESETS = [
           vy: rand(0.8, 1.8),
           r: rand(MIN_RADIUS, MIN_RADIUS + 4),
           color: pick(GREY),
-          decay: 0.004,
+          // Slow decay: the flurries should drift for a good six seconds
+          // rather than blinking out while everyone is still reading.
+          decay: 0.0026,
           gravity: 0.012,
           drag: 0.999,
           delay: Math.random() * 45,

@@ -21,7 +21,7 @@ Every task's requirements implicitly include this section. Values are copied ver
 - **No third-party or cross-origin requests, ever.** No CDNs, no web fonts, no external images, no analytics. All game code, styles and content live inside `dist/index.html`. Task 12 adds exactly two same-origin siblings — `sw.js` (offline caching, which cannot be inlined) and `icon-180.png` (the home-screen icon) — and nothing else may join them.
 - **Fonts:** system stack only — `-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif`.
 - **Backgrounds are flat fills. No gradients** — they band under Google Meet's video compression.
-- **Particle budget:** radius 6–14 px, at most 250 alive at once, effect duration 2.5–4 s.
+- **Particle budget:** radius 6–14 px, at most 250 alive at once, effect duration 2.5–7 s.
 - **Layout targets 16:9**, centered and letterboxed on other aspect ratios.
 - **Text is bold rather than merely large.** Weight survives compression; thin large text does not.
 - **Input map:** `Space`/`→` advance · `←`/`Backspace` go back · `Y` win · `N` fail (clue 5 only) · `↓` next round · `E` editor. **No `Enter`, no `PageUp`, no `PageDown`.**
@@ -1466,7 +1466,7 @@ The engine is deliberately split from the presets. It owns the canvas, the devic
 **Interfaces:**
 - Consumes: nothing.
 - Produces:
-  - `MIN_RADIUS` (`6`), `MAX_RADIUS` (`14`), `MAX_PARTICLES` (`250`), `MIN_DURATION` (`2500`), `MAX_DURATION` (`4000`).
+  - `MIN_RADIUS` (`6`), `MAX_RADIUS` (`14`), `MAX_PARTICLES` (`250`), `MIN_DURATION` (`2500`), `MAX_DURATION` (`7000`).
   - `makeParticle(overrides) -> Particle`, filling every field with a default.
   - `stepParticle(p, f) -> Particle` — advances one particle by `f` frames (1 = one frame at 60 fps). Mutates and returns.
   - `createEngine(canvas, stage) -> { play(preset), stop(), resize() }` where `preset` is a Task 8 preset object.
@@ -1488,7 +1488,7 @@ test("the compression budget is what the spec says", () => {
   assert.equal(MAX_RADIUS, 14);
   assert.equal(MAX_PARTICLES, 250);
   assert.equal(MIN_DURATION, 2500);
-  assert.equal(MAX_DURATION, 4000);
+  assert.equal(MAX_DURATION, 7000);
 });
 
 test("a particle gets sane defaults", () => {
@@ -1571,7 +1571,7 @@ export const MIN_RADIUS = 6;
 export const MAX_RADIUS = 14;
 export const MAX_PARTICLES = 250;
 export const MIN_DURATION = 2500;
-export const MAX_DURATION = 4000;
+export const MAX_DURATION = 7000;
 
 export function makeParticle(overrides = {}) {
   return {

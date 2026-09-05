@@ -255,7 +255,7 @@ duration. Adding a twelfth preset later is a table entry, not a new module.
 
 | Preset | Description |
 |---|---|
-| `ashfall` | Slow grey flakes drifting down over a dimmed screen. The default. |
+| `ashfall` | Slow grey flakes drifting for about six seconds over a dimmed screen. The default. |
 | `deflate` | The answer sinks a few pixels, the screen desaturates, a red vignette closes in, and the stage shakes briefly. |
 | `shatter` | The answer breaks into angular fragments that fall and rotate. |
 | `iris` | A dark vignette closes inward until only the answer remains lit. |
@@ -265,7 +265,10 @@ Constraints every preset obeys:
 
 - Particle radius 6–14 px, so nothing dissolves into mush under Meet's encoder.
 - At most 250 live particles at once, to hold frame rate on the iPad.
-- Total duration 2.5–4 s, then the screen settles and holds on the answer.
+- Total duration 2.5–7 s, then the screen settles and holds on the answer.
+  The upper bound was raised from 4 s on 2026-09-05: effect *length* is not
+  what video compression punishes — particle size and speed are — and the
+  ashfall was blinking out while people were still reading it.
 - No preset relies on fine detail, rapid strobing, or subtle color shifts, all of
   which compression destroys.
 - `prefers-reduced-motion` substitutes a simple fade for any preset.

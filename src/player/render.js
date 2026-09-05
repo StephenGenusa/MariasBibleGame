@@ -10,6 +10,7 @@ export function viewModel(state) {
   const { phase, round, k, week } = state;
   const current = week.rounds[round] ?? { answer: "", clues: [] };
   const points = pointValue(k);
+  const isLastRound = round >= week.rounds.length - 1;
 
   const clues = [];
   for (let i = 0; i < CLUES_PER_ROUND; i++) {
@@ -35,6 +36,7 @@ export function viewModel(state) {
     failEnabled: phase === CLUES && k >= CLUES_PER_ROUND,
     showAnswer: phase === RESOLVED,
     showNext: phase === RESOLVED,
+    nextLabel: isLastRound ? "Finish \u2193" : "Next round \u2193",
   };
 }
 
@@ -67,6 +69,7 @@ export function createRenderer(root) {
     titleScreen.hidden = !vm.showTitle;
     endScreen.hidden = !vm.showEnd;
     answerPanel.hidden = !vm.showAnswer;
+    nextBar.textContent = vm.nextLabel;
     nextBar.hidden = !vm.showNext;
     controls.hidden = !vm.showControls;
     failButton.disabled = !vm.failEnabled;

@@ -64,3 +64,20 @@ test("the end screen replaces everything", () => {
   assert.equal(vm.showAnswer, false);
   assert.equal(vm.showControls, false);
 });
+
+test("the next bar reads 'Next round' until the last round", () => {
+  const vm = viewModel(run(initialState(WEEK), "ADVANCE", "WIN"));
+  assert.match(vm.nextLabel, /^Next round/);
+});
+
+test("the last round's next bar reads 'Finish'", () => {
+  const vm = viewModel(run(initialState(WEEK), "ADVANCE", "WIN", "NEXT_ROUND", "WIN"));
+  assert.match(vm.nextLabel, /^Finish/);
+  assert.ok(!/Next round/.test(vm.nextLabel));
+});
+
+test("a single-round week finishes immediately", () => {
+  const ONE = { rounds: [{ answer: "Rebekah", clues: ["a", "b", "c", "d", "e"] }] };
+  const vm = viewModel(run(initialState(ONE), "ADVANCE", "WIN"));
+  assert.match(vm.nextLabel, /^Finish/);
+});
