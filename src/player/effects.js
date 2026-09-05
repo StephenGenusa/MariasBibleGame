@@ -229,7 +229,11 @@ export function createEngine(canvas, stage) {
     if (preset.overlay) {
       overlayClass = preset.overlay;
       stage.classList.add(overlayClass);
-      overlayTimer = setTimeout(clearOverlay, preset.duration);
+      // Some effects end on a changed screen and must stay that way until the
+      // moderator moves on, rather than snapping back after a few seconds.
+      if (!preset.persistOverlay) {
+        overlayTimer = setTimeout(clearOverlay, preset.duration);
+      }
     }
 
     // Reduced motion gets the overlay's colour wash but no particle storm.
@@ -268,6 +272,7 @@ const PARTY = ["#ff3b6b", "#ffc44d", "#33e08a", "#4db8ff", "#c99bff"];
 const GREY = ["#9aa3b8", "#7b8499", "#b8bfd0", "#6f7891"];
 const RAIN = ["#4a6ea8", "#3b5a8c", "#5c81bd"];
 const SHARD = ["#4a5164", "#39404f", "#5d6579", "#2e3440"];
+const PALE = ["#e8eef7", "#c8d4e6", "#f4f7fb", "#aab9d0"];
 
 const rand = (min, max) => min + Math.random() * (max - min);
 const pick = list => list[(Math.random() * list.length) | 0];
@@ -441,6 +446,102 @@ export const WIN_PRESETS = [
       return out;
     },
   },
+  {
+    id: "balloons",
+    label: "Balloons",
+    kind: "win",
+    duration: 5600,
+    overlay: null,
+    emit({ width, height }) {
+      const out = [];
+      for (let i = 0; i < 55; i++) {
+        out.push(makeParticle({
+          x: rand(0, width),
+          y: height + rand(10, 260),
+          vx: rand(-0.35, 0.35),
+          vy: -rand(1.1, 2.3),
+          r: rand(MAX_RADIUS - 2, MAX_RADIUS),
+          color: pick(PARTY),
+          gravity: -0.004,
+          drag: 0.999,
+          decay: 0.0028,
+          delay: Math.random() * 55,
+        }));
+      }
+      return out;
+    },
+  },
+  {
+    id: "flashbulbs",
+    label: "Flashbulbs",
+    kind: "win",
+    duration: 3200,
+    overlay: "fx-flash",
+    emit({ width, height }) {
+      const out = [];
+      // Short-lived pops scattered across the whole run, like press cameras.
+      for (let i = 0; i < 64; i++) {
+        out.push(makeParticle({
+          x: rand(width * 0.05, width * 0.95),
+          y: rand(height * 0.08, height * 0.92),
+          vx: 0, vy: 0,
+          r: rand(MAX_RADIUS - 4, MAX_RADIUS),
+          color: pick(PALE),
+          gravity: 0,
+          drag: 1,
+          decay: 0.05,
+          // Spread by index, not at random: the pops space out evenly and the
+          // last one lands at a time the duration can be checked against.
+          delay: (i / 64) * 182 + Math.random() * 8,
+        }));
+      }
+      return out;
+    },
+  },
+  {
+    id: "popcorn",
+    label: "Popcorn",
+    kind: "win",
+    duration: 4600,
+    overlay: null,
+    emit({ width, height }) {
+      const out = [];
+      for (let i = 0; i < 95; i++) {
+        out.push(makeParticle({
+          x: rand(0, width),
+          y: height + 20,
+          vx: rand(-2.2, 2.2),
+          vy: -rand(9, 16),
+          r: rand(MIN_RADIUS + 2, MAX_RADIUS),
+          color: pick(GOLD),
+          gravity: 0.34,
+          drag: 0.993,
+          spin: rand(-0.2, 0.2),
+          decay: 0.0034,
+          delay: Math.random() * 70,
+        }));
+      }
+      return out;
+    },
+  },
+  {
+    id: "bloom",
+    label: "Bloom",
+    kind: "win",
+    duration: 3400,
+    overlay: "fx-bloom",
+    screenOnly: true,
+    emit() { return []; },
+  },
+  {
+    id: "sweep",
+    label: "Sweep",
+    kind: "win",
+    duration: 3000,
+    overlay: "fx-sweep",
+    screenOnly: true,
+    emit() { return []; },
+  },
 ];
 
 export const LOSE_PRESETS = [
@@ -477,6 +578,7 @@ export const LOSE_PRESETS = [
     kind: "lose",
     duration: 2600,
     overlay: "fx-deflate",
+    screenOnly: true,
     emit() { return []; },
   },
   {
@@ -500,14 +602,17 @@ export const LOSE_PRESETS = [
     kind: "lose",
     duration: 2800,
     overlay: "fx-iris",
+    screenOnly: true,
     emit() { return []; },
   },
   {
     id: "crumble",
     label: "Crumble",
     kind: "lose",
-    duration: 4200,
+    duration: 6000,
     overlay: "fx-crumble",
+    // The screen is left blank afterwards, so the overlay must not snap back.
+    persistOverlay: true,
     // The engine hands over the answer's own ink, so these particles start out
     // spelling the word. Without a DOM to measure, it degrades to a burst.
     usesText: true,
@@ -515,30 +620,138 @@ export const LOSE_PRESETS = [
       if (!ink) {
         return burst(width / 2, height * 0.5, 80, SHARD, {
           minSpeed: 1, maxSpeed: 4, gravity: 0.5, decay: 0.0032, lift: -1,
+          delay: 74,
         });
       }
 
       // Particle size follows the sampling grid so the word stays legible for
       // the moment before it goes.
       const r = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, ink.step * 0.62));
+      const span = Math.max(1, ink.width);
 
       return ink.points.map(pt => makeParticle({
         x: pt.x,
         y: pt.y,
-        vx: rand(-0.35, 0.35),
-        vy: rand(-0.4, 0.1),
+        // The real text is on screen and readable for this long first; the
+        // particles then appear exactly where its glyphs were.
+        delay: 74,
+        vx: rand(-0.3, 0.3),
+        // A rising bias on the right means that side hangs a beat longer, so
+        // the word collapses across rather than dropping as one slab.
+        vy: rand(-0.15, 0.1) - 0.95 * (pt.x / span),
         r,
         color: ink.color,
-        shape: "circle",
-        gravity: 0.52,
-        drag: 0.995,
+        gravity: 0.5,
+        drag: 0.996,
         spin: rand(-0.1, 0.1),
         decay: 0.0032,
-        // Collapse left to right, so it reads as crumbling rather than
-        // the whole word dropping at once.
-        delay: ((pt.x / Math.max(1, ink.width + 1)) * 22) + Math.random() * 9,
       }));
     },
+  },
+  {
+    id: "dissolve",
+    label: "Dissolve",
+    kind: "lose",
+    duration: 5600,
+    overlay: "fx-crumble",
+    persistOverlay: true,
+    usesText: true,
+    emit({ width, height, ink }) {
+      if (!ink) {
+        return burst(width / 2, height * 0.5, 80, GREY, {
+          minSpeed: 0.6, maxSpeed: 2.5, gravity: 0, decay: 0.003, lift: 0,
+          delay: 74,
+        });
+      }
+      const r = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, ink.step * 0.62));
+      const cx = ink.points.reduce((a, q) => a + q.x, 0) / ink.points.length;
+
+      // No gravity: the word drifts apart on the spot instead of falling.
+      return ink.points.map(pt => makeParticle({
+        x: pt.x,
+        y: pt.y,
+        delay: 74,
+        vx: (pt.x - cx) * 0.012 + rand(-0.5, 0.5),
+        vy: rand(-0.7, 0.15),
+        r,
+        color: ink.color,
+        gravity: 0,
+        drag: 0.998,
+        decay: 0.003,
+      }));
+    },
+  },
+  {
+    id: "smoke",
+    label: "Smoke",
+    kind: "lose",
+    duration: 5200,
+    overlay: null,
+    emit({ width, height }) {
+      const out = [];
+      for (let i = 0; i < 70; i++) {
+        out.push(makeParticle({
+          x: rand(width * 0.15, width * 0.85),
+          y: height + rand(0, 90),
+          vx: rand(-0.5, 0.5),
+          vy: -rand(0.9, 2.1),
+          r: rand(MAX_RADIUS - 3, MAX_RADIUS),
+          color: pick(SHARD),
+          gravity: -0.006,
+          drag: 0.997,
+          spin: rand(-0.05, 0.05),
+          decay: 0.0030,
+          delay: Math.random() * 60,
+        }));
+      }
+      return out;
+    },
+  },
+  {
+    id: "crack",
+    label: "Crack",
+    kind: "lose",
+    duration: 3400,
+    overlay: "fx-crack",
+    emit({ width, height }) {
+      const out = [];
+      // Splinters thrown outward fast and flat, like something fracturing.
+      for (let i = 0; i < 110; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = rand(9, 21);
+        out.push(makeParticle({
+          x: width / 2, y: height * 0.5,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed * 0.55,
+          r: rand(MIN_RADIUS, MIN_RADIUS + 3),
+          color: pick(PALE),
+          shape: "shard",
+          spin: rand(-0.4, 0.4),
+          gravity: 0.08,
+          drag: 0.955,
+          decay: 0.0046,
+        }));
+      }
+      return out;
+    },
+  },
+  {
+    id: "buzzer",
+    label: "Buzzer",
+    kind: "lose",
+    duration: 2600,
+    overlay: "fx-buzzer",
+    screenOnly: true,
+    emit() { return []; },
+  },
+  {
+    id: "flatline",
+    label: "Flatline",
+    kind: "lose",
+    duration: 4000,
+    overlay: "fx-flatline",
+    screenOnly: true,
+    emit() { return []; },
   },
   {
     id: "downpour",

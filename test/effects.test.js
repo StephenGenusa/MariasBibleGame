@@ -81,15 +81,15 @@ import {
 const VIEWPORT = { width: 1280, height: 720 };
 const ALL = () => [...WIN_PRESETS, ...LOSE_PRESETS];
 
-test("there are six win presets and six lose presets", () => {
-  assert.equal(WIN_PRESETS.length, 6);
-  assert.equal(LOSE_PRESETS.length, 6);
-  assert.deepEqual(
-    WIN_PRESETS.map(p => p.id),
-    ["fireworks", "cannons", "starburst", "goldenrain", "shockwave", "streamers"]);
-  assert.deepEqual(
-    LOSE_PRESETS.map(p => p.id),
-    ["ashfall", "deflate", "shatter", "iris", "crumble", "downpour"]);
+test("there are eleven win presets and eleven lose presets", () => {
+  assert.equal(WIN_PRESETS.length, 11);
+  assert.equal(LOSE_PRESETS.length, 11);
+  assert.deepEqual(WIN_PRESETS.map(p => p.id), [
+    "fireworks", "cannons", "starburst", "goldenrain", "shockwave",
+    "streamers", "balloons", "flashbulbs", "popcorn", "bloom", "sweep"]);
+  assert.deepEqual(LOSE_PRESETS.map(p => p.id), [
+    "ashfall", "deflate", "shatter", "iris", "crumble", "dissolve",
+    "smoke", "crack", "buzzer", "flatline", "downpour"]);
 });
 
 test("every preset is uniquely identified and labelled", () => {
@@ -155,13 +155,17 @@ test("the two screen-treatment presets use an overlay and no particles", () => {
   }
 });
 
-test("every preset that is not a pure screen treatment emits particles", () => {
+test("screenOnly presets emit nothing and everything else emits something", () => {
   // A preset may combine both: shatter uses particles for the shards and an
   // overlay for the impact and colour drain, which is what makes its valence
-  // unmistakable. Only deflate and iris are overlay-only.
+  // unmistakable. The distinction is declared in data, not guessed at here.
   for (const p of ALL()) {
-    if (p.id === "deflate" || p.id === "iris") continue;
-    assert.ok(p.emit(VIEWPORT).length > 0, `${p.id} emitted nothing`);
+    if (p.screenOnly) {
+      assert.equal(p.emit(VIEWPORT).length, 0, `${p.id} is screenOnly but emitted`);
+      assert.equal(typeof p.overlay, "string", `${p.id} is screenOnly with no overlay`);
+    } else {
+      assert.ok(p.emit(VIEWPORT).length > 0, `${p.id} emitted nothing`);
+    }
   }
 });
 
@@ -185,10 +189,12 @@ test("every preset's particles outlive its stated duration", () => {
     const particles = p.emit(VIEWPORT);
     if (particles.length === 0) continue;
 
-    const fastest = Math.max(...particles.map(q => q.decay));
-    const msAlive = (1 / fastest) * (1000 / 60);
+    // An effect ends when its LAST particle dies, so a preset may use short
+    // pops staggered across the run (flashbulbs) as well as long slow drifts.
+    const lastFrame = Math.max(...particles.map(q => q.delay + 1 / q.decay));
+    const msAlive = lastFrame * (1000 / 60);
     assert.ok(msAlive >= p.duration,
-      `${p.id}: particles last ${Math.round(msAlive)}ms but the effect claims ${p.duration}ms`);
+      `${p.id}: particles are done at ${Math.round(msAlive)}ms but the effect claims ${p.duration}ms`);
   }
 });
 
@@ -219,13 +225,32 @@ test("crumble turns the answer's own ink into particles when it can", () => {
   assert.ok(out.every(q => q.gravity > 0.4), "they must actually fall");
 });
 
-test("crumble staggers so the word collapses across, not all at once", () => {
+test("crumble collapses across rather than dropping as one slab", () => {
   const ink = {
     step: 10, width: 100, color: "#ffffff",
     points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
   };
   const [left, right] = getPreset("crumble").emit({ ...VIEWPORT, ink });
-  assert.ok(right.delay > left.delay, "the far side should go later");
+  // Every particle appears at the same moment, when the real text hides.
+  assert.equal(left.delay, right.delay);
+  // The rising bias on the right makes that side hang a beat longer.
+  assert.ok(right.vy < left.vy, "the far side should fall later");
+});
+
+test("crumble and dissolve hold the answer readable before anything moves", () => {
+  const ink = { step: 10, width: 60, color: "#ffffff", points: [{ x: 0, y: 0 }] };
+  for (const id of ["crumble", "dissolve"]) {
+    const [p] = getPreset(id).emit({ ...VIEWPORT, ink });
+    const ms = p.delay * (1000 / 60);
+    assert.ok(ms > 1000, `${id} starts after only ${Math.round(ms)}ms`);
+  }
+});
+
+test("crumble and dissolve leave the screen blank afterwards", () => {
+  for (const id of ["crumble", "dissolve"]) {
+    assert.equal(getPreset(id).persistOverlay, true,
+      `${id} must keep its overlay so the answer does not snap back`);
+  }
 });
 
 test("crumble still works with no text to sample", () => {
