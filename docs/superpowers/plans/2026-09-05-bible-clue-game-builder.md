@@ -684,3 +684,464 @@ git commit -m "Add the builder's paste box and live parse report"
 ```
 
 ---
+### Task 5: Background palette and a live stage preview
+
+The preview reuses the player's real `viewModel`, `createRenderer` and
+stylesheet, so what the builder shows is what the game will show. Anything less
+would be a second implementation that drifts.
+
+**Files:**
+- Modify: `src/builder/builder.html`
+- Modify: `src/builder/builder.js`
+- Modify: `src/builder/builder.css`
+
+**Interfaces:**
+- Consumes: `BACKGROUNDS`, `viewModel`, `createRenderer` from `render.js`; `initialState`, `reduce` from `machine.js`.
+- Produces: `state.background` is set by the palette; `refresh()` also repaints the preview.
+
+- [ ] **Step 1: Add the markup**
+
+Append inside `.wrap`, after the paste panel:
+
+```html
+<section class="panel">
+  <h2>Background</h2>
+  <p class="help">Flat colours read best once Google Meet has compressed the
+    picture. Gradients and photos tend to smear.</p>
+  <div id="palette" class="palette"></div>
+</section>
+
+<section class="panel">
+  <h2>Preview</h2>
+  <p class="help">This is the real game screen, showing the third clue of your
+    first character.</p>
+  <div class="preview-frame">
+    <div id="preview" class="stage" data-bg="slate">
+      <header class="hud"><span class="hud-round"></span><span class="hud-points"></span></header>
+      <ol class="clues">
+        <li class="clue"><span class="clue-num">1</span><span class="clue-text"></span></li>
+        <li class="clue"><span class="clue-num">2</span><span class="clue-text"></span></li>
+        <li class="clue"><span class="clue-num">3</span><span class="clue-text"></span></li>
+        <li class="clue"><span class="clue-num">4</span><span class="clue-text"></span></li>
+        <li class="clue"><span class="clue-num">5</span><span class="clue-text"></span></li>
+      </ol>
+      <div class="answer" hidden><span class="answer-text"></span></div>
+      <footer class="controls" hidden>
+        <button class="btn btn-win" type="button" tabindex="-1">&check;</button>
+        <button class="btn btn-fail" type="button" tabindex="-1">&times;</button>
+      </footer>
+      <div class="next-bar" hidden></div>
+      <section class="screen screen-title" hidden></section>
+      <section class="screen screen-end" hidden></section>
+    </div>
+    <canvas id="preview-fx"></canvas>
+  </div>
+</section>
+```
+
+- [ ] **Step 2: Wire up the palette and preview**
+
+Append to `src/builder/builder.js`:
+
+```js
+/* ---------- background palette ---------- */
+
+const paletteEl = $("palette");
+paletteEl.innerHTML = BACKGROUNDS.map(id => `
+  <button type="button" class="swatch stage" data-bg="${id}" data-pick="${id}"
+          aria-label="${id}"><span>Aa</span></button>`).join("");
+
+paletteEl.addEventListener("click", event => {
+  const pick = event.target.closest("[data-pick]");
+  if (!pick) return;
+  state.background = pick.dataset.pick;
+  for (const el of paletteEl.querySelectorAll(".swatch")) {
+    el.classList.toggle("is-on", el.dataset.pick === state.background);
+  }
+  refresh();
+});
+
+/* ---------- live preview ---------- */
+
+const previewEl = $("preview");
+const previewRenderer = createRenderer(previewEl);
+
+function renderPreview(week) {
+  previewEl.dataset.bg = week.theme.background;
+
+  // Show a real mid-round screen: round 1, third clue revealed.
+  const sample = week.rounds.length
+    ? week
+    : { rounds: [{ answer: "Rebekah", clues: [
+        "An answer to prayer", "Animal lover", "Stay hydrated",
+        "Born when their spouse almost died", "Eavesdropper"] }] };
+
+  let s = reduce(initialState(sample), { type: "ADVANCE" });
+  s = reduce(s, { type: "ADVANCE" });
+  s = reduce(s, { type: "ADVANCE" });
+  previewRenderer.render(viewModel(s));
+}
+```
+
+Then extend `refresh()` so it repaints the preview — replace the existing
+function with:
+
+```js
+function refresh() {
+  const result = weekFromForm(readForm());
+  renderReport(result);
+  renderPreview(result.week);
+  return result;
+}
+```
+
+- [ ] **Step 3: Style the palette and frame**
+
+Append to `src/builder/builder.css`:
+
+```css
+.palette { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px; }
+.swatch {
+  all: unset;
+  aspect-ratio: 16 / 9; border-radius: 10px; cursor: pointer;
+  display: grid; place-items: center;
+  background: var(--bg); color: var(--fg);
+  font-weight: 800; font-size: 17px;
+  outline: 3px solid transparent; outline-offset: 2px;
+}
+.swatch.is-on { outline-color: #3b82f6; }
+
+/* The preview must not inherit the player's fixed, full-window stage rules. */
+.preview-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
+.preview-frame .stage { position: absolute; inset: 0; margin: 0; max-width: none; max-height: none; }
+.preview-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+```
+
+The last rule matters: the player's `.stage` is positioned against the whole
+window. Inside the builder it has to be scoped to its frame instead.
+
+- [ ] **Step 4: Try it**
+
+Rebuild and confirm all eight swatches appear, clicking one outlines it and
+recolours the preview, and the preview shows three clues with "Worth 3 points".
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/builder dist/builder.html
+git commit -m "Add background palette and a live stage preview"
+```
+
+---
+
+### Task 6: Effect pickers that actually play
+
+Eleven presets are too many to choose from a dropdown label. Each one gets a
+button that plays it over the preview.
+
+**Files:**
+- Modify: `src/builder/builder.html`
+- Modify: `src/builder/builder.js`
+- Modify: `src/builder/builder.css`
+
+**Interfaces:**
+- Consumes: `WIN_PRESETS`, `LOSE_PRESETS`, `getPreset`, `createEngine` from `effects.js`.
+- Produces: `state.winEffect` and `state.loseEffect`.
+
+- [ ] **Step 1: Add the markup**
+
+Append after the preview panel:
+
+```html
+<section class="panel">
+  <h2>When someone gets it right</h2>
+  <div id="win-effects" class="effects"></div>
+</section>
+
+<section class="panel">
+  <h2>When nobody gets it</h2>
+  <div id="lose-effects" class="effects"></div>
+</section>
+```
+
+- [ ] **Step 2: Wire them up**
+
+Append to `src/builder/builder.js`:
+
+```js
+/* ---------- effect pickers ---------- */
+
+const engine = createEngine($("preview-fx"), previewEl);
+
+function mountEffects(containerId, presets, key) {
+  const el = $(containerId);
+  el.innerHTML = presets.map(p => `
+    <div class="effect" data-id="${p.id}">
+      <button type="button" class="effect-pick" data-pick-effect="${p.id}">${p.label}</button>
+      <button type="button" class="effect-play" data-play="${p.id}" aria-label="Preview ${p.label}">&#9654;</button>
+    </div>`).join("");
+
+  el.addEventListener("click", event => {
+    const pick = event.target.closest("[data-pick-effect]");
+    const play = event.target.closest("[data-play]");
+
+    if (pick) {
+      state[key] = pick.dataset.pickEffect;
+      for (const node of el.querySelectorAll(".effect")) {
+        node.classList.toggle("is-on", node.dataset.id === state[key]);
+      }
+      refresh();
+      engine.play(getPreset(state[key]));      // choosing also previews it
+    } else if (play) {
+      engine.play(getPreset(play.dataset.play));
+    }
+  });
+
+  // Reflect the starting selection.
+  for (const node of el.querySelectorAll(".effect")) {
+    node.classList.toggle("is-on", node.dataset.id === state[key]);
+  }
+}
+
+mountEffects("win-effects", WIN_PRESETS, "winEffect");
+mountEffects("lose-effects", LOSE_PRESETS, "loseEffect");
+```
+
+The two pickers are mounted from separate lists, which is what makes it
+impossible to choose `ashfall` for a win through the interface. Task 3's
+validation is the second line of defence, for a hand-edited file.
+
+- [ ] **Step 3: Style them**
+
+```css
+.effects { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.effect { display: flex; border: 2px solid #dfe3ea; border-radius: 10px; overflow: hidden; }
+@media (prefers-color-scheme: dark) { .effect { border-color: #2b3140; } }
+.effect.is-on { border-color: #3b82f6; }
+.effect-pick { all: unset; flex: 1; padding: 12px 14px; cursor: pointer; font-weight: 600; }
+.effect.is-on .effect-pick { background: #3b82f6; color: #fff; }
+.effect-play { all: unset; padding: 12px 14px; cursor: pointer; color: #6f7891; }
+.effect-play:hover { color: inherit; }
+```
+
+- [ ] **Step 4: Try every one of them**
+
+Rebuild, then play all eleven presets over a dark background and a light one.
+Confirm each is visually distinct, none is so dense it hides the clue text, and
+`deflate` and `iris` visibly do something despite emitting no particles.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/builder dist/builder.html
+git commit -m "Add playable effect pickers for wins and misses"
+```
+
+---
+
+### Task 7: Download the week, and load one back
+
+The output, plus the round trip that makes "same as last week but swap two
+characters" a twenty-second job.
+
+**Files:**
+- Modify: `src/builder/builder.html`
+- Modify: `src/builder/builder.js`
+- Modify: `src/builder/builder.css`
+
+**Interfaces:**
+- Consumes: `filenameFor`, `weekFromForm`.
+- Produces: a downloaded `week-YYYY-MM-DD.json`; `loadWeekIntoForm(week)`.
+
+- [ ] **Step 1: Add the markup**
+
+```html
+<section class="panel panel-out">
+  <button type="button" id="download" class="primary" disabled>Download this week</button>
+  <label class="secondary">
+    Open a week I made before<input type="file" id="open-week" accept="application/json,.json" hidden>
+  </label>
+  <p class="help" id="out-help"></p>
+</section>
+```
+
+- [ ] **Step 2: Wire it up**
+
+```js
+/* ---------- output ---------- */
+
+function loadWeekIntoForm(week) {
+  // Rebuild the paste text from the rounds so the box stays the source of truth.
+  $("week-text").value = week.rounds
+    .map(r => [r.answer, "", ...r.clues].join("\n"))
+    .join("\n\n");
+  if (week.id) $("week-id").value = week.id;
+
+  const theme = week.theme ?? {};
+  state.background = theme.background ?? state.background;
+  state.winEffect = theme.winEffect ?? state.winEffect;
+  state.loseEffect = theme.loseEffect ?? state.loseEffect;
+
+  for (const el of paletteEl.querySelectorAll(".swatch")) {
+    el.classList.toggle("is-on", el.dataset.pick === state.background);
+  }
+  for (const [id, key] of [["win-effects", "winEffect"], ["lose-effects", "loseEffect"]]) {
+    for (const node of $(id).querySelectorAll(".effect")) {
+      node.classList.toggle("is-on", node.dataset.id === state[key]);
+    }
+  }
+  refresh();
+}
+
+$("download").addEventListener("click", () => {
+  const { week, ok } = weekFromForm(readForm());
+  if (!ok) return;
+
+  const blob = new Blob([JSON.stringify(week, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filenameFor(week);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  $("out-help").textContent =
+    `Saved ${filenameFor(week)} to your Downloads folder. Copy it to the iPad, `
+    + `then in the game press E and choose "Load a file".`;
+});
+
+$("open-week").addEventListener("change", async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const week = JSON.parse(await file.text());
+    if (!Array.isArray(week.rounds)) throw new Error("that file has no characters in it");
+    loadWeekIntoForm(week);
+    $("out-help").textContent = `Opened ${file.name}.`;
+  } catch (error) {
+    $("out-help").textContent = `Could not open that file: ${error.message}`;
+  } finally {
+    event.target.value = "";   // let the same file be picked twice
+  }
+});
+```
+
+Extend `refresh()` once more so the button reflects whether there is anything
+to save — replace it with:
+
+```js
+function refresh() {
+  const result = weekFromForm(readForm());
+  renderReport(result);
+  renderPreview(result.week);
+  $("download").disabled = !result.ok;
+  return result;
+}
+```
+
+- [ ] **Step 3: Style the output panel**
+
+```css
+.panel-out { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.primary {
+  all: unset; cursor: pointer; padding: 14px 22px; border-radius: 10px;
+  background: #3b82f6; color: #fff; font-weight: 700;
+}
+.primary:disabled { background: #b8c2d4; cursor: default; }
+.secondary {
+  cursor: pointer; padding: 14px 20px; border-radius: 10px;
+  border: 2px solid #dfe3ea; font-weight: 600;
+}
+@media (prefers-color-scheme: dark) { .secondary { border-color: #2b3140; } }
+.panel-out .help { flex-basis: 100%; margin: 0; }
+```
+
+- [ ] **Step 4: Test the round trip**
+
+Rebuild. Paste the week-one email, pick "plum" and "streamers" and "iris",
+download the file. Reload the page, use *Open a week I made before* on that
+file, and confirm every field comes back — including the palette outline and
+both effect selections. Then open the downloaded file in a text editor and
+confirm the `theme` block holds `plum`, `streamers` and `iris`.
+
+Finally, load that same file into the live game at
+https://stephengenusa.github.io/MariasBibleGame/ via `E` → *Load a file*, and
+confirm the background and both effects actually changed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/builder dist/builder.html
+git commit -m "Download a week file and reopen one for editing"
+```
+
+---
+
+### Task 8: Deploy the builder
+
+**Files:**
+- Modify: `README.md` (create if absent)
+
+- [ ] **Step 1: Write down the weekly routine**
+
+Create or extend `README.md`:
+
+```markdown
+# Five Clues
+
+A five-clue Bible character guessing game, run from an iPad and screen-shared
+into Google Meet.
+
+- **Play:** https://stephengenusa.github.io/MariasBibleGame/
+- **Build a week:** https://stephengenusa.github.io/MariasBibleGame/builder.html
+
+## Each week
+
+1. Open the builder, paste the week's email, pick a background and two effects.
+2. Download the week file.
+3. Copy it to the iPad (USB drive, AirDrop, or iCloud Drive).
+4. In the game, press `E` (or triple-tap the top-left corner) and choose
+   *Load a file*.
+
+Nothing needs rebuilding or redeploying to change the week's content.
+
+## Changing the game itself
+
+    python3 build.py
+    node --test
+    git add -A && git commit -m "..." && git push
+    git subtree push --prefix dist origin gh-pages
+```
+
+- [ ] **Step 2: Deploy**
+
+```bash
+python3 build.py
+node --test
+git add -A && git commit -m "Add the week builder and document the weekly routine"
+git push origin main
+git subtree push --prefix dist origin gh-pages
+```
+
+- [ ] **Step 3: Verify it is live**
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' https://stephengenusa.github.io/MariasBibleGame/builder.html
+```
+
+Expected: `200`. Then open it in a browser and download one week file end to end.
+
+---
+
+## Done when
+
+- `node --test` passes every suite.
+- The builder opens both by double-clicking `dist/builder.html` and from the
+  Pages URL.
+- Pasting the week-one email lists seven characters with no warnings.
+- All eleven effects preview over the live stage.
+- A downloaded week file loads into the real game and visibly changes the
+  background and both effects.
+- `README.md` states the weekly routine in steps a non-technical person can follow.
