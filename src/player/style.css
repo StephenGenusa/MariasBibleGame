@@ -161,3 +161,36 @@ html, body {
   .stage.fx-deflate { animation: none; }
   .stage.fx-iris::after { animation: none; clip-path: circle(40% at 50% 50%); }
 }
+
+.editor {
+  position: fixed; inset: 0; z-index: 20;
+  background: #0f1218; color: #e8eaf0;
+  overflow: auto; padding: 4vh 4vw;
+  font-family: var(--font);
+  -webkit-user-select: text; user-select: text;
+}
+.editor-inner { max-width: 760px; margin: 0 auto; }
+.editor h2 { margin: 0 0 6px; font-size: 26px; }
+.editor h3 { margin: 26px 0 8px; font-size: 18px; color: #9aa3b8; }
+.editor-hint { margin: 0 0 12px; color: #9aa3b8; font-size: 14px; line-height: 1.5; }
+.editor-text {
+  width: 100%; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #171b24; color: #e8eaf0; border: 2px solid #2b3140;
+  border-radius: 10px; padding: 12px; resize: vertical;
+}
+.editor-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; align-items: center; }
+.editor-btn {
+  font: 600 15px var(--font); padding: 11px 18px; border-radius: 10px;
+  border: 2px solid #3a4152; background: #232a38; color: #e8eaf0; cursor: pointer;
+}
+.editor-btn:disabled { opacity: 0.4; cursor: default; }
+.editor-report ul { margin: 0; padding-left: 20px; line-height: 1.7; }
+.editor-report .warn, .editor .warn { color: #ffc44d; }
+.editor-weeks { list-style: none; margin: 0; padding: 0; }
+.editor-weeks li { display: flex; gap: 8px; margin-bottom: 8px; }
+.editor-weeks button {
+  font: 600 15px var(--font); padding: 10px 14px; border-radius: 10px;
+  border: 2px solid #3a4152; background: #232a38; color: #e8eaf0; cursor: pointer;
+}
+.editor-weeks button:first-child { flex: 1; text-align: left; }
+.editor-weeks .del { color: #ff5c7a; flex: 0 0 auto; }

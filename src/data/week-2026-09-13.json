@@ -9,6 +9,47 @@
     "loseEffect": "ashfall"
   },
   "rounds": [
-    { "answer": "Placeholder", "clues": ["one", "two", "three", "four", "five"] }
+    { "answer": "Rebekah", "clues": [
+      "An answer to prayer",
+      "Animal lover",
+      "Stay hydrated",
+      "Born when their spouse almost died",
+      "Eavesdropper" ] },
+    { "answer": "Elijah", "clues": [
+      "Appeared out of nowhere",
+      "Wanted to die under a plant",
+      "Listen to me",
+      "DoorDash",
+      "450 vs 1" ] },
+    { "answer": "Lot's Wife", "clues": [
+      "No name",
+      "Content",
+      "Jesus talked about them",
+      "Terrible sense of direction",
+      "King of condiments" ] },
+    { "answer": "Uriah", "clues": [
+      "A foreigner",
+      "Refused to go home",
+      "Slept at the palace door",
+      "Carried their own death sentence",
+      "Their spouse is really famous" ] },
+    { "answer": "Samuel", "clues": [
+      "An answer to prayer",
+      "Divided household",
+      "A good friend",
+      "Multiple phone alarms",
+      "Poured a lot of oil" ] },
+    { "answer": "Achan", "clues": [
+      "Tribe of Judah",
+      "Confessed",
+      "A sin that affected the whole nation",
+      "My precious",
+      "Expensive taste" ] },
+    { "answer": "Tamar", "clues": [
+      "A special garment",
+      "Had some really awful brothers",
+      "Two well-known characters have this name",
+      "Come into my lair, the spider said",
+      "Daughter of a king" ] }
   ]
 }
