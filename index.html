@@ -172,6 +172,39 @@ html, body {
   .stage.fx-iris::after { animation: none; clip-path: circle(40% at 50% 50%); }
 }
 
+.editor {
+  position: fixed; inset: 0; z-index: 20;
+  background: #0f1218; color: #e8eaf0;
+  overflow: auto; padding: 4vh 4vw;
+  font-family: var(--font);
+  -webkit-user-select: text; user-select: text;
+}
+.editor-inner { max-width: 760px; margin: 0 auto; }
+.editor h2 { margin: 0 0 6px; font-size: 26px; }
+.editor h3 { margin: 26px 0 8px; font-size: 18px; color: #9aa3b8; }
+.editor-hint { margin: 0 0 12px; color: #9aa3b8; font-size: 14px; line-height: 1.5; }
+.editor-text {
+  width: 100%; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #171b24; color: #e8eaf0; border: 2px solid #2b3140;
+  border-radius: 10px; padding: 12px; resize: vertical;
+}
+.editor-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; align-items: center; }
+.editor-btn {
+  font: 600 15px var(--font); padding: 11px 18px; border-radius: 10px;
+  border: 2px solid #3a4152; background: #232a38; color: #e8eaf0; cursor: pointer;
+}
+.editor-btn:disabled { opacity: 0.4; cursor: default; }
+.editor-report ul { margin: 0; padding-left: 20px; line-height: 1.7; }
+.editor-report .warn, .editor .warn { color: #ffc44d; }
+.editor-weeks { list-style: none; margin: 0; padding: 0; }
+.editor-weeks li { display: flex; gap: 8px; margin-bottom: 8px; }
+.editor-weeks button {
+  font: 600 15px var(--font); padding: 10px 14px; border-radius: 10px;
+  border: 2px solid #3a4152; background: #232a38; color: #e8eaf0; cursor: pointer;
+}
+.editor-weeks button:first-child { flex: 1; text-align: left; }
+.editor-weeks .del { color: #ff5c7a; flex: 0 0 auto; }
+
 </style>
 </head>
 <body>
@@ -232,13 +265,73 @@ html, body {
   },
   "rounds": [
     {
-      "answer": "Placeholder",
+      "answer": "Rebekah",
       "clues": [
-        "one",
-        "two",
-        "three",
-        "four",
-        "five"
+        "An answer to prayer",
+        "Animal lover",
+        "Stay hydrated",
+        "Born when their spouse almost died",
+        "Eavesdropper"
+      ]
+    },
+    {
+      "answer": "Elijah",
+      "clues": [
+        "Appeared out of nowhere",
+        "Wanted to die under a plant",
+        "Listen to me",
+        "DoorDash",
+        "450 vs 1"
+      ]
+    },
+    {
+      "answer": "Lot's Wife",
+      "clues": [
+        "No name",
+        "Content",
+        "Jesus talked about them",
+        "Terrible sense of direction",
+        "King of condiments"
+      ]
+    },
+    {
+      "answer": "Uriah",
+      "clues": [
+        "A foreigner",
+        "Refused to go home",
+        "Slept at the palace door",
+        "Carried their own death sentence",
+        "Their spouse is really famous"
+      ]
+    },
+    {
+      "answer": "Samuel",
+      "clues": [
+        "An answer to prayer",
+        "Divided household",
+        "A good friend",
+        "Multiple phone alarms",
+        "Poured a lot of oil"
+      ]
+    },
+    {
+      "answer": "Achan",
+      "clues": [
+        "Tribe of Judah",
+        "Confessed",
+        "A sin that affected the whole nation",
+        "My precious",
+        "Expensive taste"
+      ]
+    },
+    {
+      "answer": "Tamar",
+      "clues": [
+        "A special garment",
+        "Had some really awful brothers",
+        "Two well-known characters have this name",
+        "Come into my lair, the spider said",
+        "Daughter of a king"
       ]
     }
   ]
@@ -1156,10 +1249,218 @@ function bindInput({ stage, dispatch, getState }) {
 }
 
 /* ---------- editor.js ---------- */
-// Load a new week without rebuilding.
+// Load a new week without rebuilding: paste it, or pick a .json file.
+
+
+const DEFAULT_THEME = {
+  background: "slate",
+  backgroundImage: null,
+  winEffect: "fireworks",
+  loseEffect: "ashfall",
+};
+
+function nextSundayId(from = new Date()) {
+  const date = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  date.setDate(date.getDate() + ((7 - date.getDay()) % 7));
+  const pad = n => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function buildWeek({ rounds, id, title, theme }) {
+  return {
+    formatVersion: 1,
+    id,
+    title: title || id,
+    theme: { ...DEFAULT_THEME, ...(theme ?? {}) },
+    rounds,
+  };
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"]/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+function openEditor({ storage, onLoad, embedded }) {
+  if (document.querySelector(".editor")) return;
+
+  const panel = document.createElement("div");
+  panel.className = "editor";
+  panel.innerHTML = `
+    <div class="editor-inner">
+      <h2>Load a week</h2>
+      <p class="editor-hint">Paste the week's list exactly as it arrived: the
+        character's name on its own line, a blank line, then the five clues.</p>
+      <textarea class="editor-text" rows="12" spellcheck="false"
+        placeholder="Rebekah&#10;&#10;An answer to prayer&#10;Animal lover&#10;..."></textarea>
+      <div class="editor-row">
+        <button type="button" class="editor-btn" data-act="parse">Check it</button>
+        <label class="editor-btn">
+          Load a file<input type="file" accept="application/json,.json" hidden>
+        </label>
+        <button type="button" class="editor-btn" data-act="save" disabled>Use this week</button>
+        <button type="button" class="editor-btn" data-act="close">Close</button>
+      </div>
+      <div class="editor-report" role="status"></div>
+      <h3>Saved weeks</h3>
+      <ul class="editor-weeks"></ul>
+    </div>`;
+
+  const textarea = panel.querySelector(".editor-text");
+  const report = panel.querySelector(".editor-report");
+  const saveButton = panel.querySelector('[data-act="save"]');
+  const fileInput = panel.querySelector('input[type="file"]');
+  const list = panel.querySelector(".editor-weeks");
+
+  let pending = null;
+
+  function say(html) { report.innerHTML = html; }
+
+  function showParsed({ rounds, warnings }) {
+    const lines = rounds.map(r => `<li><b>${escapeHtml(r.answer)}</b> &mdash; ${r.clues.length} clues</li>`);
+    const warned = warnings.map(w => `<li class="warn">${escapeHtml(w)}</li>`);
+    say(`<ul>${lines.join("")}${warned.join("")}</ul>`);
+    saveButton.disabled = rounds.length === 0;
+  }
+
+  function currentTheme() {
+    return storage.getActiveWeek(embedded).theme ?? DEFAULT_THEME;
+  }
+
+  function renderList() {
+    const weeks = storage.loadWeeks();
+    list.innerHTML = weeks.length
+      ? weeks.map(w =>
+          `<li><button type="button" data-use="${escapeHtml(w.id)}">${escapeHtml(w.title)}</button>
+           <button type="button" class="del" data-del="${escapeHtml(w.id)}" aria-label="Delete">&times;</button></li>`
+        ).reverse().join("")
+      : '<li class="editor-hint">Nothing saved yet &mdash; the built-in week is in use.</li>';
+  }
+
+  function close() {
+    panel.remove();
+  }
+
+  panel.addEventListener("click", event => {
+    const { act, use, del } = event.target.dataset;
+
+    if (act === "parse") {
+      const parsed = parseWeekText(textarea.value);
+      pending = parsed.rounds.length ? parsed : null;
+      showParsed(parsed);
+    } else if (act === "save" && pending) {
+      const id = nextSundayId();
+      const week = buildWeek({ rounds: pending.rounds, id, theme: currentTheme() });
+      storage.saveWeek(week);
+      close();
+      onLoad(week);
+    } else if (act === "close") {
+      close();
+    } else if (use) {
+      storage.setActiveWeekId(use);
+      const week = storage.getActiveWeek(embedded);
+      close();
+      onLoad(week);
+    } else if (del) {
+      storage.deleteWeek(del);
+      renderList();
+    }
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    try {
+      const week = JSON.parse(await file.text());
+      if (!Array.isArray(week.rounds) || week.rounds.length === 0) {
+        throw new Error("that file has no rounds in it");
+      }
+      storage.saveWeek(buildWeek({
+        rounds: week.rounds,
+        id: week.id ?? nextSundayId(),
+        title: week.title,
+        theme: week.theme,
+      }));
+      close();
+      onLoad(storage.getActiveWeek(embedded));
+    } catch (error) {
+      say(`<p class="warn">Could not read that file: ${escapeHtml(error.message)}</p>`);
+    }
+  });
+
+  renderList();
+  document.body.append(panel);
+  textarea.focus();
+}
 
 /* ---------- main.js ---------- */
 // Wiring only. Every game rule lives in machine.js.
+
+
+const EMBEDDED_WEEK = JSON.parse(document.getElementById("game-data").textContent);
+
+const stage = document.getElementById("stage");
+const canvas = document.getElementById("fx");
+
+function safeLocalStorage() {
+  // Merely touching localStorage can throw on iOS in some configurations.
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+const storage = createStorage(safeLocalStorage());
+const renderer = createRenderer(stage);
+const engine = createEngine(canvas, stage);
+
+let state = initialState(storage.getActiveWeek(EMBEDDED_WEEK));
+
+function applyTheme(week) {
+  const theme = week.theme ?? {};
+  stage.dataset.bg = theme.background ?? "slate";
+  stage.style.backgroundImage = theme.backgroundImage
+    ? `url("${theme.backgroundImage}")`
+    : "";
+}
+
+function loadWeek(week) {
+  state = initialState(week);
+  applyTheme(week);
+  engine.stop();
+  renderer.render(viewModel(state));
+}
+
+function dispatch(action) {
+  if (action.type === "EDIT") {
+    if (state.phase === "TITLE" || state.phase === "END") {
+      openEditor({ storage, onLoad: loadWeek, embedded: EMBEDDED_WEEK });
+    }
+    return;
+  }
+
+  const next = reduce(state, action);
+  if (next === state) return;
+  state = next;
+
+  renderer.render(viewModel(state));
+
+  // The effect fires on the resolving transition only. Going back into an
+  // answer must not replay it.
+  if (state.justResolved && state.phase === RESOLVED) {
+    const theme = state.week.theme ?? {};
+    const id = state.outcome === "win"
+      ? (theme.winEffect ?? "fireworks")
+      : (theme.loseEffect ?? "ashfall");
+    engine.play(getPreset(id));
+  } else if (state.phase !== RESOLVED) {
+    engine.stop();
+  }
+}
+
+bindInput({ stage, dispatch, getState: () => state });
+loadWeek(state.week);
 
 </script>
 </body>
