@@ -646,6 +646,8 @@ export function reduce(state, action) {
   switch (action.type) {
     case "ADVANCE":
       if (s.phase === TITLE) return { ...s, phase: CLUES, round: 0, k: 1 };
+      // The end screen invites "press space to start over", so honour it.
+      if (s.phase === END) return initialState(s.week);
       if (s.phase !== CLUES) return s;
       return s.k >= CLUES_PER_ROUND ? s : { ...s, k: s.k + 1 };
 
@@ -827,7 +829,7 @@ Insert this case into the `switch` in `src/player/machine.js`, immediately befor
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test test/machine.test.js`
-Expected: PASS, 20 tests.
+Expected: PASS, 21 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -2354,12 +2356,12 @@ export function bindInput({ stage, dispatch, getState }) {
     if (target.closest(".btn-win")) return fire(event, "WIN");
     if (target.closest(".btn-fail")) return fire(event, "FAIL");
     if (target.closest(".next-bar")) return fire(event, "NEXT_ROUND");
-    if (target.closest(".screen, .editor")) return;
 
-    // Otherwise the right 70% of the stage advances.
     const rect = stage.getBoundingClientRect();
-    const phase = getState().phase;
-    if (phase === "RESOLVED") return fire(event, "NEXT_ROUND");
+    if (getState().phase === "RESOLVED") return fire(event, "NEXT_ROUND");
+
+    // The right 70% advances; the left 30% is dead space, which is what keeps
+    // the top-left corner free for the editor's triple-tap.
     if (event.clientX - rect.left > rect.width * 0.3) fire(event, "ADVANCE");
   }
 

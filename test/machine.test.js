@@ -152,3 +152,11 @@ test("back then forward returns to where you were", () => {
   assert.equal(andBack.round, there.round);
   assert.equal(andBack.k, there.k);
 });
+
+test("space from the end screen starts over, as the screen promises", () => {
+  const s = run(initialState(WEEK), "ADVANCE", "WIN", "NEXT_ROUND", "WIN", "NEXT_ROUND");
+  assert.equal(s.phase, END);
+  const restarted = reduce(s, { type: "ADVANCE" });
+  assert.equal(restarted.phase, TITLE);
+  assert.deepEqual(restarted.outcomes, []);
+});

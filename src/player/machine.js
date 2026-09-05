@@ -37,6 +37,8 @@ export function reduce(state, action) {
   switch (action.type) {
     case "ADVANCE":
       if (s.phase === TITLE) return { ...s, phase: CLUES, round: 0, k: 1 };
+      // The end screen invites "press space to start over", so honour it.
+      if (s.phase === END) return initialState(s.week);
       if (s.phase !== CLUES) return s;
       return s.k >= CLUES_PER_ROUND ? s : { ...s, k: s.k + 1 };
 
