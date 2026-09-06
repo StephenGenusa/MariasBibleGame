@@ -48,9 +48,46 @@ test("build emits the install assets", () => {
   assert.ok(existsSync("dist/icon-180.png"), "home screen icon missing");
   assert.ok(statSync("dist/icon-180.png").size > 200, "icon looks empty");
 
+  for (const size of [180, 192, 512]) {
+    assert.ok(existsSync(`dist/icon-${size}.png`), `icon-${size}.png missing`);
+    assert.ok(statSync(`dist/icon-${size}.png`).size > 200, `icon-${size}.png looks empty`);
+  }
+
   const html = readFileSync("dist/index.html", "utf8");
   assert.match(html, /rel="apple-touch-icon"/);
   assert.match(html, /apple-mobile-web-app-capable/);
+  assert.match(html, /rel="manifest"/);
+});
+
+test("the manifest describes an installable standalone app", () => {
+  execFileSync("python3", ["build.py"], { stdio: "pipe" });
+  const manifest = JSON.parse(readFileSync("dist/manifest.webmanifest", "utf8"));
+
+  assert.equal(manifest.display, "standalone", "an installed app must lose browser chrome");
+  // Relative, so the app keeps working under the /MariasBibleGame/ project path.
+  assert.equal(manifest.start_url, "./");
+  assert.equal(manifest.scope, "./");
+  assert.ok(manifest.icons.some(i => i.sizes === "192x192"), "192px icon missing");
+  assert.ok(manifest.icons.some(i => i.sizes === "512x512"), "512px icon missing");
+
+  const sw = readFileSync("dist/sw.js", "utf8");
+  for (const asset of ["./index.html", "./manifest.webmanifest", "./icon-512.png"]) {
+    assert.ok(sw.includes(`"${asset}"`), `${asset} is not precached`);
+  }
+});
+
+test("the service worker serves from cache first", () => {
+  execFileSync("python3", ["build.py"], { stdio: "pipe" });
+  const sw = readFileSync("dist/sw.js", "utf8");
+
+  // The whole point of installing the app: it opens with no network at all.
+  // A network-first worker stalls on a bad connection, which is exactly the
+  // situation the moderator is in when a meeting is already running.
+  const handler = sw.slice(sw.indexOf('addEventListener("fetch"'));
+  assert.ok(handler.indexOf("caches.match") < handler.indexOf("fetch(event.request)"),
+    "the fetch handler must consult the cache before the network");
+  assert.match(handler, /return hit \|\| network/,
+    "a cache hit must be served without waiting on the network");
 });
 
 test("the service worker version changes when the page does", () => {
